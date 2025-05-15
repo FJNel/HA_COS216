@@ -1484,6 +1484,36 @@
                 return $this->error("Unauthorized: Only Couriers can create drones", 403);
             }
 
+            $current_operator_id = null;
+            $is_available = true;
+            $latest_latitude = null;
+            $latest_longitude = null;
+            $altitude = null;
+            $battery_level = 100;
+
+            if (isset($data['current_operator_id'])) {
+                $current_operator_id = $data['current_operator_id'] === null ? null : (int)$data['current_operator_id'];
+            }
+            if (isset($data['is_available'])) {
+                $is_available = (bool)$data['is_available'];
+            }
+            if (isset($data['latest_latitude'])) {
+                $latest_latitude = (float)$data['latest_latitude'];
+            }
+            if (isset($data['latest_longitude'])) {
+                $latest_longitude = (float)$data['latest_longitude'];
+            }
+            if (isset($data['altitude'])) {
+                $altitude = (float)$data['altitude'];
+            }
+            if (isset($data['battery_level'])) {
+                $battery = (int)$data['battery_level'];
+                if ($battery < 0 || $battery > 100) {
+                    return $this->error("Battery level must be between 0 and 100", 400);
+                }
+                $battery_level = $battery;
+            }
+
             $stmt = $this->connection->prepare("
                 INSERT INTO drones (
                     current_operator_id, 
@@ -1493,8 +1523,21 @@
                     altitude, 
                     battery_level
                 ) 
-                VALUES (NULL, TRUE, NULL, NULL, NULL, 100)
+                VALUES (?, ?, ?, ?, ?, ?)
             ");
+            if (!$stmt) {
+                return $this->error("Database error: failed to prepare statement", 500);
+            }
+
+            $stmt->bind_param(
+                "iddddi",
+                $current_operator_id,
+                $is_available,
+                $latest_latitude,
+                $latest_longitude,
+                $altitude,
+                $battery_level
+            );
 
             if (!$stmt->execute()) {
                 return $this->error("Database error: failed to create drone", 500);
