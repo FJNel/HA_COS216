@@ -1,6 +1,8 @@
 <?php 
     // <!-- FERDINAND JOHANNES NEL -->
     // <!-- u24594475 -->
+    // <!-- ZOE JOUBERT -->
+	// <!-- u05084360 -->
     // <!-- COS216 -->
 
     require_once 'COS216/PA3/php/config.php';
@@ -900,39 +902,50 @@
             if (!isset($data['product_id'])) {
                 return $this->error("product_id is required", 400);
             }
-        
+
             $productId = (int)$data['product_id'];
             if (!$this->validateProductId($productId)) {
                 return $this->error("Invalid product ID", 404);
             }
-        
-            try {
-                $checkStmt = $this->connection->prepare("
-                    SELECT quantity FROM carts 
-                    WHERE customer_id = ? AND product_id = ?
-                ");
-                $checkStmt->bind_param("ii", $customerId, $productId);
-                $checkStmt->execute();
-                $exists = $checkStmt->get_result()->num_rows > 0;
-                $checkStmt->close();
-        
-                $stmt = $this->connection->prepare("
-                    INSERT INTO carts (customer_id, product_id, quantity) 
-                    VALUES (?, ?, 1)
-                    ON DUPLICATE KEY UPDATE quantity = quantity + 1
-                ");
-                $stmt->bind_param("ii", $customerId, $productId);
-                $stmt->execute();
-        
-                return [
-                    'status' => 'success',
-                    'timestamp' => round(microtime(true) * 1000),
-                    'data' => $exists ? 'Product quantity in cart increased' : 'Product added to cart',
-                    'code' => 200
-                ];
-            } catch (Exception $e) {
-                return $this->error("Database error: " . $e->getMessage(), 500);
+
+            $stmt = $this->connection->prepare("SELECT SUM(quantity) as total FROM carts WHERE customer_id = ?");
+            $stmt->bind_param("i", $customerId);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $currentTotal = ($row = $result->fetch_assoc()) ? (int)$row['total'] : 0;
+
+            if ($currentTotal >= 7) {
+                return $this->error("Cannot have more than 7 items in cart", 400);
             }
+
+            $checkStmt = $this->connection->prepare("SELECT quantity FROM carts WHERE customer_id = ? AND product_id = ?");
+            $checkStmt->bind_param("ii", $customerId, $productId);
+            $checkStmt->execute();
+            $exists = $checkStmt->get_result()->fetch_assoc();
+            $currentProductQty = $exists ? (int)$exists['quantity'] : 0;
+
+            if ($currentProductQty >= 7) {
+                return $this->error("Cannot have more than 7 of the same product in cart", 400);
+            }
+
+            if ($currentTotal + 1 > 7) {
+                return $this->error("Cannot have more than 7 items in cart", 400);
+            }
+
+            $stmt = $this->connection->prepare("
+                INSERT INTO carts (customer_id, product_id, quantity) 
+                VALUES (?, ?, 1)
+                ON DUPLICATE KEY UPDATE quantity = quantity + 1
+            ");
+            $stmt->bind_param("ii", $customerId, $productId);
+            $stmt->execute();
+
+            return [
+                'status' => 'success',
+                'timestamp' => round(microtime(true) * 1000),
+                'data' => $currentProductQty ? 'Product quantity in cart increased' : 'Product added to cart',
+                'code' => 200
+            ];
         }
     
         private function handleRemove($customerId, $data) {
@@ -961,36 +974,53 @@
             if (!isset($data['product_id']) || !isset($data['quantity'])) {
                 return $this->error("product_id and quantity are required", 400);
             }
-    
+
             $productId = (int)$data['product_id'];
             $quantity = (int)$data['quantity'];
-    
+
             if ($quantity <= 0) {
                 return $this->handleRemove($customerId, $data);
             }
-    
+
+            if ($quantity > 7) {
+                return $this->error("Cannot have more than 7 of the same product in cart", 400);
+            }
+
             if (!$this->validateProductId($productId)) {
                 return $this->error("Invalid product ID", 404);
             }
-    
-            try {
-                $stmt = $this->connection->prepare("
-                    INSERT INTO carts (customer_id, product_id, quantity) 
-                    VALUES (?, ?, ?)
-                    ON DUPLICATE KEY UPDATE quantity = ?
-                ");
-                $stmt->bind_param("iiii", $customerId, $productId, $quantity, $quantity);
-                $stmt->execute();
-    
-                return [
-                    'status' => 'success',
-                    'timestamp' => round(microtime(true) * 1000),
-                    'data' => 'Cart quantity updated',
-                    'code' => 200
-                ];
-            } catch (Exception $e) {
-                return $this->error("Database error: " . $e->getMessage(), 500);
+
+            $stmt = $this->connection->prepare("SELECT SUM(quantity) as total FROM carts WHERE customer_id = ?");
+            $stmt->bind_param("i", $customerId);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $currentTotal = ($row = $result->fetch_assoc()) ? (int)$row['total'] : 0;
+
+            $stmt2 = $this->connection->prepare("SELECT quantity FROM carts WHERE customer_id = ? AND product_id = ?");
+            $stmt2->bind_param("ii", $customerId, $productId);
+            $stmt2->execute();
+            $result2 = $stmt2->get_result();
+            $currentProductQty = ($row2 = $result2->fetch_assoc()) ? (int)$row2['quantity'] : 0;
+
+            $newTotal = $currentTotal - $currentProductQty + $quantity;
+            if ($newTotal > 7) {
+                return $this->error("Cannot have more than 7 items in cart", 400);
             }
+
+            $stmt = $this->connection->prepare("
+                INSERT INTO carts (customer_id, product_id, quantity) 
+                VALUES (?, ?, ?)
+                ON DUPLICATE KEY UPDATE quantity = ?
+            ");
+            $stmt->bind_param("iiii", $customerId, $productId, $quantity, $quantity);
+            $stmt->execute();
+
+            return [
+                'status' => 'success',
+                'timestamp' => round(microtime(true) * 1000),
+                'data' => 'Cart quantity updated',
+                'code' => 200
+            ];
         }
     
         private function handleGet($customerId) {
@@ -1080,38 +1110,56 @@
             if (!isset($data['apikey']) || !isset($data['action'])) {
                 return $this->error("Not all required fields specified for this request type", 400);
             }
-    
-            $customerId = $this->getCustomerIdByApiKey($data['apikey']);
-            if (!$customerId) {
+
+            $userId = $this->getUserIdByApiKey($data['apikey']);
+            if (!$userId) {
                 return $this->error("Invalid API key (Unauthorised)", 401);
             }
-    
+
+            $userType = $this->getUserType($userId);
+            if (!$userType) {
+                return $this->error("User not found", 404);
+            }
+
             $action = strtolower($data['action']);
-    
+
             switch ($action) {
+                case 'create':
                 case 'place':
-                    return $this->handlePlaceOrder($customerId);
+                    if ($userType !== 'Customer') {
+                        return $this->error("Unauthorized: Only Customers can place orders", 403);
+                    }
+                    return $this->handlePlaceOrder($userId);
+                case 'update':
+                    return $this->handleUpdateOrder($userId, $userType, $data);
                 case 'get':
-                    return $this->handleGetOrders($customerId);
+                    return $this->handleGetStorageOrders($userId, $userType, $data);
                 default:
-                    return $this->error("Invalid action. Must be 'place' or 'get'", 400);
+                    return $this->error("Invalid action. Must be 'create', 'update', or 'get'", 400);
             }
         }
     
         private function handlePlaceOrder($customerId) {
             $this->connection->begin_transaction();
-    
+
             try {
                 $cartItems = $this->getCartItems($customerId);
+                $totalQty = 0;
+                foreach ($cartItems as $item) {
+                    $totalQty += (int)$item['quantity'];
+                }
+                if ($totalQty > 7) {
+                    throw new Exception("Cannot place order with more than 7 items");
+                }
                 if (empty($cartItems)) {
                     throw new Exception("Cannot place order with empty cart");
                 }
-    
+
                 $orderId = $this->createOrder($customerId);
                 $this->addProductsToOrder($orderId, $cartItems);
                 $this->clearCart($customerId);
                 $this->connection->commit();
-    
+
                 return [
                     'status' => 'success',
                     'timestamp' => round(microtime(true) * 1000),
@@ -1144,7 +1192,6 @@
         }
     
         private function createOrder($customerId) {
-            //Generate random delivery date between 19 and 25 May 2025
             $deliveryDate = $this->generateRandomDeliveryDate();
             
             $stmt = $this->connection->prepare("
@@ -1190,7 +1237,7 @@
             $stmt->execute();
         }
     
-        private function getCustomerIdByApiKey($apiKey) {
+        private function getUserIdByApiKey($apiKey) {
             $stmt = $this->connection->prepare("SELECT id FROM users WHERE api_key = ?");
             $stmt->bind_param("s", $apiKey);
             $stmt->execute();
@@ -1198,19 +1245,147 @@
             return $result->num_rows ? $result->fetch_assoc()['id'] : null;
         }
 
-        private function handleGetOrders($customerId) {
+        private function error($message, $code) {
+            return [
+                'status' => 'error',
+                'timestamp' => round(microtime(true) * 1000),
+                'data' => $message,
+                'code' => $code
+            ];
+        }
+
+        private function handleUpdateOrder($userId, $userType, $data) {
+            if (!isset($data['order_id'])) {
+                return $this->error("order_id is required for update", 400);
+            }
+
+            $orderId = (int)$data['order_id'];
+            $updates = [];
+            $params = [];
+
+            if ($userType === 'Customer') {
+                $stmt = $this->connection->prepare("SELECT id FROM orders WHERE id = ? AND customer_id = ?");
+                $stmt->bind_param("ii", $orderId, $userId);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                if ($result->num_rows === 0) {
+                    return $this->error("Order not found or Unauthorized request (the order does not belong to this customer)", 404);
+                }
+            }
+
+            if (isset($data['latitude'])) {
+                $updates[] = "latitude = ?";
+                $params[] = (float)$data['latitude'];
+            }
+
+            if (isset($data['longitude'])) {
+                $updates[] = "longitude = ?";
+                $params[] = (float)$data['longitude'];
+            }
+
+            if (isset($data['state'])) {
+                if (!in_array($data['state'], ['Storage', 'Dispatched', 'Delivered'])) {
+                    return $this->error("Invalid state. Must be 'Storage', 'Dispatched', or 'Delivered'", 400);
+                }
+                $updates[] = "state = ?";
+                $params[] = $data['state'];
+            }
+
+            if (isset($data['drone_id'])) {
+                if ($userType !== 'Courier') {
+                    return $this->error("Unauthorized: Only Couriers can update drone_id", 403);
+                }
+                $updates[] = "drone_id = ?";
+                $params[] = $data['drone_id'] === null ? null : (int)$data['drone_id'];
+            }
+
+            if (empty($updates)) {
+                return $this->error("No fields to update", 400);
+            }
+
+            $sql = "UPDATE orders SET " . implode(", ", $updates) . " WHERE id = ?";
+            $params[] = $orderId;
+
+            $stmt = $this->connection->prepare($sql);
+            if (!$stmt) {
+                return $this->error("Database error: failed to prepare statement", 500);
+            }
+
+            // Build types string for bind_param
+            $types = '';
+            foreach ($params as $i => $param) {
+                if (is_int($param) || is_null($param)) {
+                    $types .= 'i';
+                } elseif (is_float($param)) {
+                    $types .= 'd';
+                } else {
+                    $types .= 's';
+                }
+            }
+            $stmt->bind_param($types, ...$params);
+
+            if (!$stmt->execute()) {
+                return $this->error("Database error: failed to update order", 500);
+            }
+
+            return [
+                'status' => 'success',
+                'timestamp' => round(microtime(true) * 1000),
+                'data' => 'Order updated successfully',
+                'code' => 200
+            ];
+        }
+
+        private function handleGetStorageOrders($userId, $userType, $data) {
             try {
                 $orders = [];
-                $orderStmt = $this->connection->prepare("
-                    SELECT id, state, delivery_date, created_at 
-                    FROM orders 
-                    WHERE customer_id = ?
-                    ORDER BY created_at DESC
-                ");
-                $orderStmt->bind_param("i", $customerId);
-                $orderStmt->execute();
+                if ($userType === 'Courier') {
+                    $state = null;
+                    if (isset($_POST['state'])) {
+                        $state = $_POST['state'];
+                    } elseif (isset($_GET['state'])) {
+                        $state = $_GET['state'];
+                    }
+
+                    if (isset($data['state'])) {
+                        $state = $data['state'];
+                    }
+                    $allowedStates = ['Storage', 'Dispatched', 'Delivered', 'All'];
+                    if ($state && !in_array($state, $allowedStates)) {
+                        return $this->error("Invalid state filter. Must be 'Storage', 'Dispatched', 'Delivered', or 'All'", 400);
+                    }
+                    if (!$state) {
+                        $state = 'Storage';
+                    }
+                    if ($state === 'All') {
+                        $orderStmt = $this->connection->prepare("
+                            SELECT id, customer_id, state, delivery_date, created_at, latitude, longitude 
+                            FROM orders 
+                            ORDER BY created_at DESC
+                        ");
+                    } else {
+                        $orderStmt = $this->connection->prepare("
+                            SELECT id, customer_id, state, delivery_date, created_at, latitude, longitude 
+                            FROM orders 
+                            WHERE state = ?
+                            ORDER BY created_at DESC
+                        ");
+                        $orderStmt->bind_param("s", $state);
+                    }
+                    $orderStmt->execute();
+                } else {
+                    $orderStmt = $this->connection->prepare("
+                        SELECT id, customer_id, state, delivery_date, created_at, latitude, longitude 
+                        FROM orders 
+                        WHERE customer_id = ?
+                        ORDER BY created_at DESC
+                    ");
+                    $orderStmt->bind_param("i", $userId);
+                    $orderStmt->execute();
+                }
+
                 $orderResult = $orderStmt->get_result();
-    
+
                 while ($order = $orderResult->fetch_assoc()) {
                     $productStmt = $this->connection->prepare("
                         SELECT product_id, quantity 
@@ -1220,7 +1395,7 @@
                     $productStmt->bind_param("i", $order['id']);
                     $productStmt->execute();
                     $productResult = $productStmt->get_result();
-    
+
                     $products = [];
                     while ($product = $productResult->fetch_assoc()) {
                         $products[] = [
@@ -1228,16 +1403,19 @@
                             'quantity' => $product['quantity']
                         ];
                     }
-    
+
                     $orders[] = [
                         'order_id' => $order['id'],
+                        'customer_id' => $order['customer_id'],
                         'state' => $order['state'],
                         'delivery_date' => $order['delivery_date'],
                         'created_at' => $order['created_at'],
+                        'latitude' => $order['latitude'],
+                        'longitude' => $order['longitude'],
                         'products' => $products
                     ];
                 }
-    
+
                 return [
                     'status' => 'success',
                     'timestamp' => round(microtime(true) * 1000),
@@ -1248,7 +1426,262 @@
                 return $this->error("Database error: " . $e->getMessage(), 500);
             }
         }
-    
+
+        private function getUserType($userId) {
+            $stmt = $this->connection->prepare("SELECT type FROM users WHERE id = ?");
+            $stmt->bind_param("i", $userId);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            return $result->num_rows ? $result->fetch_assoc()['type'] : null;
+        }
+    }// Order class
+
+    class Drone {
+        private $connection;
+
+        public function __construct() {
+            $db = Database::getInstance();
+            $this->connection = $db->getConnection();
+        }
+
+        public function handleDrone($data) {
+            if (!isset($data['apikey']) || !isset($data['action'])) {
+                return $this->error("Not all required fields specified for this request type", 400);
+            }
+
+            $userId = $this->getUserIdByApiKey($data['apikey']);
+            if (!$userId) {
+                return $this->error("Invalid API key (Unauthorised)", 401);
+            }
+
+            $userType = $this->getUserType($userId);
+            if (!$userType) {
+                return $this->error("User not found", 404);
+            }
+
+            $action = strtolower($data['action']);
+
+            switch ($action) {
+                case 'create':
+                    return $this->handleCreateDrone($data);
+                case 'update':
+                    if ($userType !== 'Courier') {
+                        return $this->error("Unauthorized: Only Couriers can update drones", 403);
+                    }
+                    return $this->handleUpdateDrone($data);
+                case 'get':
+                    return $this->handleGetDrones($data);
+                default:
+                    return $this->error("Invalid action. Must be 'create', 'update', or 'get'", 400);
+            }
+        }
+
+        private function handleCreateDrone($data) {
+            $userId = $this->getUserIdByApiKey($data['apikey']);
+            $userType = $this->getUserType($userId);
+            
+            if ($userType !== 'Courier') {
+                return $this->error("Unauthorized: Only Couriers can create drones", 403);
+            }
+
+            $stmt = $this->connection->prepare("
+                INSERT INTO drones (
+                    current_operator_id, 
+                    is_available, 
+                    latest_latitude, 
+                    latest_longitude, 
+                    altitude, 
+                    battery_level
+                ) 
+                VALUES (NULL, TRUE, NULL, NULL, NULL, 100)
+            ");
+
+            if (!$stmt->execute()) {
+                return $this->error("Database error: failed to create drone", 500);
+            }
+
+            $droneId = $this->connection->insert_id;
+
+            return [
+                'status' => 'success',
+                'timestamp' => round(microtime(true) * 1000),
+                'data' => [
+                    'drone_id' => $droneId
+                ],
+                'code' => 201
+            ];
+        }
+
+        private function handleUpdateDrone($data) {
+            if (!isset($data['drone_id'])) {
+                return $this->error("drone_id is required for update", 400);
+            }
+
+            $droneId = (int)$data['drone_id'];
+            $updates = [];
+            $params = [];
+
+            if (isset($data['current_operator_id'])) {
+                $updates[] = "current_operator_id = ?";
+                $params[] = $data['current_operator_id'] === null ? null : (int)$data['current_operator_id'];
+            }
+
+            if (isset($data['is_available'])) {
+                $updates[] = "is_available = ?";
+                $params[] = (bool)$data['is_available'];
+            }
+
+            if (isset($data['latest_latitude'])) {
+                $updates[] = "latest_latitude = ?";
+                $params[] = (float)$data['latest_latitude'];
+            }
+
+            if (isset($data['latest_longitude'])) {
+                $updates[] = "latest_longitude = ?";
+                $params[] = (float)$data['latest_longitude'];
+            }
+
+            if (isset($data['altitude'])) {
+                $updates[] = "altitude = ?";
+                $params[] = (float)$data['altitude'];
+            }
+
+            if (isset($data['battery_level'])) {
+                $battery = (int)$data['battery_level'];
+                if ($battery < 0 || $battery > 100) {
+                    return $this->error("Battery level must be between 0 and 100", 400);
+                }
+                $updates[] = "battery_level = ?";
+                $params[] = $battery;
+            }
+
+            if (empty($updates)) {
+                return $this->error("No fields to update", 400);
+            }
+
+            $sql = "UPDATE drones SET " . implode(", ", $updates) . " WHERE id = ?";
+            $params[] = $droneId;
+
+            $stmt = $this->connection->prepare($sql);
+            if (!$stmt) {
+                return $this->error("Database error: failed to prepare statement", 500);
+            }
+
+            $types = str_repeat("s", count($params) - 1) . "i";
+            $stmt->bind_param($types, ...$params);
+
+            if (!$stmt->execute()) {
+                return $this->error("Database error: failed to update drone", 500);
+            }
+
+            return [
+                'status' => 'success',
+                'timestamp' => round(microtime(true) * 1000),
+                'data' => 'Drone updated successfully',
+                'code' => 200
+            ];
+        }
+
+        private function handleGetDrones($data = []) {
+            try {
+                $userId = $this->getUserIdByApiKey($data['apikey']);
+                $userType = $this->getUserType($userId);
+
+                $drones = [];
+                $droneIdFilter = isset($data['drone_id']) ? (int)$data['drone_id'] : null;
+
+                if ($userType === 'Courier') {
+                    if ($droneIdFilter !== null) {
+                        $stmt = $this->connection->prepare("
+                            SELECT id, current_operator_id, is_available, latest_latitude, latest_longitude, altitude, battery_level, created_at, updated_at 
+                            FROM drones
+                            WHERE id = ?
+                        ");
+                        if (!$stmt) {
+                            return $this->error("Database error: failed to prepare statement: " . $this->connection->error, 500);
+                        }
+                        $stmt->bind_param("i", $droneIdFilter);
+                    } else {
+                        $stmt = $this->connection->prepare("
+                            SELECT id, current_operator_id, is_available, latest_latitude, latest_longitude, altitude, battery_level, created_at, updated_at 
+                            FROM drones
+                            ORDER BY id ASC
+                        ");
+                        if (!$stmt) {
+                            return $this->error("Database error: failed to prepare statement: " . $this->connection->error, 500);
+                        }
+                    }
+                } else {
+                    if ($droneIdFilter !== null) {
+                        $stmt = $this->connection->prepare("
+                            SELECT d.id, d.current_operator_id, d.is_available, d.latest_latitude, d.latest_longitude, d.altitude, d.battery_level, d.created_at, d.updated_at
+                            FROM drones d
+                            INNER JOIN orders o ON o.drone_id = d.id
+                            WHERE o.customer_id = ? AND d.id = ?
+                        ");
+                        if (!$stmt) {
+                            return $this->error("Database error: failed to prepare statement: " . $this->connection->error, 500);
+                        }
+                        $stmt->bind_param("ii", $userId, $droneIdFilter);
+                    } else {
+                        $stmt = $this->connection->prepare("
+                            SELECT d.id, d.current_operator_id, d.is_available, d.latest_latitude, d.latest_longitude, d.altitude, d.battery_level, d.created_at, d.updated_at
+                            FROM drones d
+                            INNER JOIN orders o ON o.drone_id = d.id
+                            WHERE o.customer_id = ?
+                            GROUP BY d.id
+                            ORDER BY d.id ASC
+                        ");
+                        if (!$stmt) {
+                            return $this->error("Database error: failed to prepare statement: " . $this->connection->error, 500);
+                        }
+                        $stmt->bind_param("i", $userId);
+                    }
+                }
+                $stmt->execute();
+                $result = $stmt->get_result();
+
+                while ($row = $result->fetch_assoc()) {
+                    $drones[] = [
+                        'drone_id' => $row['id'],
+                        'current_operator_id' => $row['current_operator_id'],
+                        'is_available' => (bool)$row['is_available'],
+                        'latest_latitude' => $row['latest_latitude'],
+                        'latest_longitude' => $row['latest_longitude'],
+                        'altitude' => $row['altitude'],
+                        'battery_level' => $row['battery_level'],
+                        'created_at' => $row['created_at'],
+                        'updated_at' => $row['updated_at']
+                    ];
+                }
+
+                return [
+                    'status' => 'success',
+                    'timestamp' => round(microtime(true) * 1000),
+                    'data' => $drones,
+                    'code' => 200
+                ];
+            } catch (Exception $e) {
+                return $this->error("Database error: " . $e->getMessage(), 500);
+            }
+        }
+
+        private function getUserIdByApiKey($apiKey) {
+            $stmt = $this->connection->prepare("SELECT id FROM users WHERE api_key = ?");
+            $stmt->bind_param("s", $apiKey);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            return $result->num_rows ? $result->fetch_assoc()['id'] : null;
+        }
+
+        private function getUserType($userId) {
+            $stmt = $this->connection->prepare("SELECT type FROM users WHERE id = ?");
+            $stmt->bind_param("i", $userId);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            return $result->num_rows ? $result->fetch_assoc()['type'] : null;
+        }
+
         private function error($message, $code) {
             return [
                 'status' => 'error',
@@ -1257,7 +1690,7 @@
                 'code' => $code
             ];
         }
-    }// Order class
+    }// Drone class
 
 /////////////////////
 // MAIN API LOGIC //
@@ -1386,6 +1819,22 @@ switch($data['type']) {
         $order = new Order($conn);
         try {
             $result = $order->handleOrder($data);
+            $code = isset($result['code']) ? $result['code'] : 200;
+            ResponseAPI::send($result, $code);
+        } catch (Exception $error) {
+            ResponseAPI::send([
+                'status' => 'error',
+                'timestamp' => round(microtime(true) * 1000),
+                'data' => 'Unhandled server error: ' . $error->getMessage(),
+                'code' => 500
+            ], 500);
+        }
+        break;
+
+    case 'Drone':
+        $drone = new Drone();
+        try {
+            $result = $drone->handleDrone($data);
             $code = isset($result['code']) ? $result['code'] : 200;
             ResponseAPI::send($result, $code);
         } catch (Exception $error) {

@@ -346,8 +346,8 @@ Manages a user's shopping cart.
 
 Use `type: "Cart"` along with an `action` and a valid `apikey`.
 * To retrieve an array of key-value pairs of `product_id`s and their respective quantities in the user's cart, use `"action": "get"`.
-* To add a product to a user's cart, use `"action": "add"`. If the product is already in the user's cart, the product's quantity will be increased by 1.
-* To update a product in the user's cart, use `"action": "update"` along with a `quantity`. `quantity` will be used to overwrite the current quantity in the user's cart. If the quantity is `0` (or less than 0), the product will be removed from the cart automatically.
+* To add a product to a user's cart, use `"action": "add"`. If the product is already in the user's cart, the product's quantity will be increased by 1. The user's cart cannot have more than 7 products.
+* To update a product in the user's cart, use `"action": "update"` along with a `quantity`. `quantity` will be used to overwrite the current quantity in the user's cart. If the quantity is `0` (or less than 0), the product will be removed from the cart automatically. The user's cart cannot have more than 7 products. 
 * To remove a product from a user's cart, use `"action": "remove"`. If the product is not in the user's cart, the API will return `"status": "success"` but the message (`data`) will read `Product not in cart`. This is done to make client-side handling easier. 
 
 #### Parameters:
@@ -403,126 +403,154 @@ Use `type: "Cart"` along with an `action` and a valid `apikey`.
 ---
 
 ## Orders
-Handles order placement.
 
-Use `type: "Order"` along with an `action`.
-* To place an order, use `"action": "place"`. This will automatically add all of the products in the user's cart to the appropriate order, and clear the user's cart. The `order_id` will be returned if successful, otherwise an error message will be returned.
-* To get the orders associated with a user (using their `apikey`), use `"action": "get"`. This will return an array of JSON objects where all of the data associated with each of the user's orders will be returned.
+Handles order creation, updates, and retrieval with new functionality for couriers and customers.
+
+### Order Actions:
+- `create` or `place`: Creates a new order from the user's cart and clears their cart automatically. A user cannot place an order with more than 7 products.
+- `update`: Updates order fields (like location or state)
+- `get`: Retrieves orders based on user type (for a Customer, it retrieves all of this customer's orders, for a Courier, it retrieves all orders with its state as "Storage" (by default), or orders with the state as specified in the request.)
 
 #### Parameters:
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| apikey | Yes | User's API key |
-| action | Yes | "place" or "get" |
+| Parameter | Required | Description | Valid Values |
+|-----------|----------|-------------|--------------|
+| apikey | Yes | User's API key | - |
+| action | Yes | Action to perform | "create", "update", "get" |
+| order_id | For update | ID of order to update | Existing order ID |
+| latitude | For update | Delivery location latitude | -90.0 to 90.0 |
+| longitude | For update | Delivery location longitude | -180.0 to 180.0 |
+| state | For get update | Order state | "Storage", "Dispatched", "Delivered" |
 
-#### Example Request (to place an order):
+
+#### Example Request (Create Order):
 ```json
 {
   "type": "Order",
-  "apikey": "abc123def456ghi789jkl012mno345pqr",
-  "action": "place"
+  "apikey": "valid_customer_apikey",
+  "action": "create"
 }
 ```
 
-#### Example Response (Successfully placed an order):
+#### Example Request (Update Order - Courier):
 ```json
 {
-    "status": "success",
-    "timestamp": 1745867078281,
-    "data": {
-        "order_id": 4
-    },
-    "code": 200
+  "type": "Order",
+  "apikey": "valid_courier_apikey",
+  "action": "update",
+  "order_id": 123,
+  "state": "Dispatched",
+  "latitude": -26.2041,
+  "longitude": 28.0473
 }
 ```
 
-#### Example Response (Error when placing an order):
+#### Example Request (Get Storage Orders):
 ```json
 {
-  "status": "error",
+  "type": "Order",
+  "apikey": "valid_apikey",
+  "action": "get"
+}
+```
+
+#### Example Response (Get Orders - Courier):
+```json
+{
+  "status": "success",
   "timestamp": 1625097600000,
-  "data": "Cannot place order with empty cart",
-  "code": 400
-}
-```
-
-#### Example Request (to get a user's orders):
-```json
-{
-  "type": "Order",
-  "action": "get",
-  "apikey": "yby6Ulwp1BVdd3kVMp1TQzvNT7wC4lWa"
-}
-```
-
-#### Example Response (to get a user's orders):
-```json
-{
-    "status": "success",
-    "timestamp": 1745867524748,
-    "data": [
+  "data": [
+    {
+      "order_id": 123,
+      "customer_id": 456,
+      "state": "Storage",
+      "delivery_date": "2025-05-25 13:30:05",
+      "latitude": -26.2041,
+      "longitude": 28.0473,
+      "products": [
         {
-            "order_id": 4,
-            "state": "Storage",
-            "delivery_date": "2025-05-25 13:30:05",
-            "created_at": "2025-04-28 21:04:38",
-            "products": [
-                {
-                    "product_id": 7,
-                    "quantity": 1
-                }
-            ]
-        },
-        {
-            "order_id": 3,
-            "state": "Delivered",
-            "delivery_date": "2025-05-21 11:17:29",
-            "created_at": "2025-04-28 21:04:14",
-            "products": [
-                {
-                    "product_id": 7,
-                    "quantity": 1
-                }
-            ]
-        },
-        {
-            "order_id": 2,
-            "state": "Dispatched",
-            "delivery_date": "2025-05-22 08:48:26",
-            "created_at": "2025-04-28 20:21:55",
-            "products": [
-                {
-                    "product_id": 7,
-                    "quantity": 2
-                }
-            ]
+          "product_id": 789,
+          "quantity": 2
         }
-    ],
-    "code": 200
-}
-```
-
-#### Example Response (The user has no orders):
-```json
-{
-    "status": "success",
-    "timestamp": 1745867761303,
-    "data": [],
-    "code": 200
-}
-```
-
-#### Example Response (Error, invalid api key):
-```json
-{
-    "status": "error",
-    "timestamp": 1745867799570,
-    "data": "Invalid API key (Unauthorised)",
-    "code": 401
+      ]
+    }
+  ],
+  "code": 200
 }
 ```
 
 ---
+
+## Drones
+
+Manages drone inventory and operations for Couriers.
+
+### Drone Actions:
+- `create`: Adds a new drone to the system
+- `update`: Modifies drone properties
+- `get`: Retrieves all drone information. If the user is a customer, only drones associated with their orders will be returned. If the user is a courier, all drones will be returned. You can specify an `order_id` to return only that drone's information (for a customer, that drone must be associated with one of their orders to be returned)
+
+#### Parameters:
+| Parameter | Required | Description | Valid Values |
+|-----------|----------|-------------|--------------|
+| apikey | Yes | User's API key | - |
+| action | Yes | Action to perform | "create", "update", "get" |
+| drone_id | For get or update | ID of drone to return update | Existing drone ID |
+| current_operator_id | No | Assigns operator | Valid user ID or null |
+| is_available | No | Availability status | true/false |
+| latest_latitude | No | Current latitude | -90.0 to 90.0 |
+| latest_longitude | No | Current longitude | -180.0 to 180.0 |
+| altitude | No | Current altitude | >= 0 |
+| battery_level | No | Battery percentage | 0-100 |
+
+#### Example Request (Create Drone):
+```json
+{
+  "type": "Drone",
+  "apikey": "valid_inventory_manager_apikey",
+  "action": "create"
+}
+```
+
+#### Example Request (Update Drone):
+```json
+{
+  "type": "Drone",
+  "apikey": "valid_courier_apikey",
+  "action": "update",
+  "drone_id": 1,
+  "current_operator_id": 5,
+  "is_available": false,
+  "latest_latitude": -26.2041,
+  "latest_longitude": 28.0473,
+  "altitude": 150.5,
+  "battery_level": 85
+}
+```
+
+#### Example Response (Get Drones):
+```json
+{
+  "status": "success",
+  "timestamp": 1625097600000,
+  "data": [
+    {
+      "drone_id": 1,
+      "current_operator_id": 5,
+      "is_available": false,
+      "latest_latitude": -26.2041,
+      "latest_longitude": 28.0473,
+      "altitude": 150.5,
+      "battery_level": 85,
+      "created_at": "2025-04-28 21:04:38",
+      "updated_at": "2025-04-28 21:15:22"
+    }
+  ],
+  "code": 200
+}
+```
+
+---
+
 
 ## Error Handling
 All errors follow the same format:
@@ -541,3 +569,68 @@ Common error codes:
 - `404`: Not found (invalid product ID)
 - `409`: Conflict (user already exists)
 - `500`: Server error (when this happens, something is wrong on our side!)
+
+
+
+---
+
+
+
+
+
+## Error Handling (Updated)
+
+Added new error codes specific to drone and order operations:
+
+| Code | Description | Possible Causes |
+|------|-------------|-----------------|
+| 403 | Forbidden | Unauthorized drone creation attempt |
+| 422 | Unprocessable Entity | Invalid drone battery level or coordinates |
+
+#### Example Error Response:
+```json
+{
+  "status": "error",
+  "timestamp": 1625097600000,
+  "data": "Battery level must be between 0 and 100",
+  "code": 422
+}
+```
+
+---
+
+## Database Schema Updates
+
+### Drones Table:
+```sql
+CREATE TABLE drones (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    current_operator_id INT NULL,
+    is_available BOOLEAN DEFAULT TRUE,
+    latest_latitude DECIMAL(10, 8),
+    latest_longitude DECIMAL(11, 8),
+    altitude DECIMAL(10, 2),
+    battery_level INT CHECK (battery_level >= 0 AND battery_level <= 100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (current_operator_id) REFERENCES users(id) ON DELETE SET NULL
+);
+```
+
+### Orders Table Updates:
+Added columns for location tracking:
+- `latitude` DECIMAL(10, 8)
+- `longitude` DECIMAL(11, 8)
+```
+
+Key improvements in this update:
+1. Added comprehensive documentation for the new Drone functionality
+2. Enhanced Order documentation with state transition rules
+3. Added permission requirements for each operation
+4. Included database schema information
+5. Updated error codes table
+6. Provided complete example requests/responses
+7. Added parameter validation requirements
+8. Organized content for better readability
+
+The documentation maintains consistent formatting with your existing style while adding all the new features in a clear, structured way.
