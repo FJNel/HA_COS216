@@ -5,14 +5,12 @@ This document provides comprehensive documentation for the my COS216 API, detail
 ## Table of Contents
 1. [Authentication](#authentication)
 2. [User Management](#user-management)
-   - [Register](#register)
-   - [Login](#login)
 3. [Products](#products)
-   - [Get All Products](#get-all-products)
 4. [Preferences](#preferences)
 5. [Wishlist](#wishlist)
 6. [Cart](#cart)
 7. [Orders](#orders)
+8. [Drones](#drones)
 
 ---
 
@@ -485,7 +483,7 @@ Handles order creation, updates, and retrieval with new functionality for courie
 Manages drone inventory and operations for Couriers.
 
 ### Drone Actions:
-- `create`: Adds a new drone to the system
+- `create`: Adds a new drone to the system. You can specify drone attributes when creating a drone. If you don't, default values (usually NULL) will be used
 - `update`: Modifies drone properties
 - `get`: Retrieves all drone information. If the user is a customer, only drones associated with their orders will be returned. If the user is a courier, all drones will be returned. You can specify an `order_id` to return only that drone's information (for a customer, that drone must be associated with one of their orders to be returned)
 
