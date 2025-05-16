@@ -483,9 +483,10 @@ Handles order creation, updates, and retrieval with new functionality for courie
 Manages drone inventory and operations for Couriers.
 
 ### Drone Actions:
-- `create`: Adds a new drone to the system. You can specify drone attributes when creating a drone. If you don't, default values (usually NULL) will be used
-- `update`: Modifies drone properties
+- `create`: Adds a new drone to the system. You can specify drone attributes when creating a drone. If you don't, default values (usually NULL) will be used.
+- `update`: Modifies drone properties as specified in the request object
 - `get`: Retrieves all drone information. If the user is a customer, only drones associated with their orders will be returned. If the user is a courier, all drones will be returned. You can specify an `order_id` to return only that drone's information (for a customer, that drone must be associated with one of their orders to be returned)
+- `move` along with a `direction`: Couriers can easily move a drone by specifying a `drone_id` along with a move direction. This will automatically move the drone `0.0001` degrees in that direction by default (the API will automatically change the `latest_latitude` and `latest_longitude` attributes according to the move direction. You can speficy the distance that the drone moves in the specified direction by adding a `distance` (in degrees) to the request object. When you use `move`, the drone that you move's attributes will be returned by the API.
 
 #### Parameters:
 | Parameter | Required | Description | Valid Values |
