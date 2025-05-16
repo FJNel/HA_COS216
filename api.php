@@ -1471,8 +1471,13 @@
                     return $this->handleUpdateDrone($data);
                 case 'get':
                     return $this->handleGetDrones($data);
+                case 'move':
+                    if ($userType !== 'Courier') {
+                        return $this->error("Unauthorized: Only Couriers can move drones", 403);
+                    }
+                    return $this->handleMoveDrone($data);
                 default:
-                    return $this->error("Invalid action. Must be 'create', 'update', or 'get'", 400);
+                    return $this->error("Invalid action. Must be 'create' or 'place', 'update', 'get' or 'move", 400);
             }
         }
 
@@ -1707,6 +1712,91 @@
             } catch (Exception $e) {
                 return $this->error("Database error: " . $e->getMessage(), 500);
             }
+        }
+
+        private function handleMoveDrone($data) {
+            if (!isset($data['drone_id'])) {
+                return $this->error("drone_id is required for move", 400);
+            }
+            if (!isset($data['direction'])) {
+                return $this->error("direction is required for move", 400);
+            }
+
+            $droneId = (int)$data['drone_id'];
+            $direction = strtolower($data['direction']);
+            $distance = isset($data['distance']) ? (float)$data['distance'] : 0.0001;
+
+            if (!in_array($direction, ['up', 'down', 'left', 'right'])) {
+                return $this->error("Invalid direction. Must be 'up', 'down', 'left', or 'right'", 400);
+            }
+
+            $stmt = $this->connection->prepare("SELECT latest_latitude, latest_longitude FROM drones WHERE id = ?");
+            if (!$stmt) {
+                return $this->error("Database error: failed to prepare statement", 500);
+            }
+            $stmt->bind_param("i", $droneId);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            if ($result->num_rows === 0) {
+                return $this->error("Drone not found", 404);
+            }
+            $drone = $result->fetch_assoc();
+
+            $latitude = (float)$drone['latest_latitude'];
+            $longitude = (float)$drone['latest_longitude'];
+
+            switch ($direction) {
+                case 'up':
+                    $latitude += $distance;
+                    break;
+                case 'down':
+                    $latitude -= $distance;
+                    break;
+                case 'right':
+                    $longitude += $distance;
+                    break;
+                case 'left':
+                    $longitude -= $distance;
+                    break;
+            }
+
+            $updateStmt = $this->connection->prepare("UPDATE drones SET latest_latitude = ?, latest_longitude = ? WHERE id = ?");
+            if (!$updateStmt) {
+                return $this->error("Database error: failed to prepare update statement", 500);
+            }
+            $updateStmt->bind_param("ddi", $latitude, $longitude, $droneId);
+            if (!$updateStmt->execute()) {
+                return $this->error("Database error: failed to update drone position", 500);
+            }
+
+            $selectStmt = $this->connection->prepare("SELECT id, current_operator_id, is_available, latest_latitude, latest_longitude, altitude, battery_level, created_at, updated_at FROM drones WHERE id = ?");
+            if (!$selectStmt) {
+                return $this->error("Database error: failed to prepare select statement", 500);
+            }
+            $selectStmt->bind_param("i", $droneId);
+            $selectStmt->execute();
+            $result = $selectStmt->get_result();
+            if ($result->num_rows === 0) {
+                return $this->error("Drone not found after move", 404);
+            }
+            $row = $result->fetch_assoc();
+
+            return [
+                'status' => 'success',
+                'timestamp' => round(microtime(true) * 1000),
+                'data' => [
+                    'drone_id' => $row['id'],
+                    'current_operator_id' => $row['current_operator_id'],
+                    'is_available' => (bool)$row['is_available'],
+                    'latest_latitude' => $row['latest_latitude'],
+                    'latest_longitude' => $row['latest_longitude'],
+                    'altitude' => $row['altitude'],
+                    'battery_level' => $row['battery_level'],
+                    'created_at' => $row['created_at'],
+                    'updated_at' => $row['updated_at']
+                ],
+                'code' => 200
+            ];
         }
 
         private function getUserIdByApiKey($apiKey) {
