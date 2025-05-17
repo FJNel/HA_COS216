@@ -1,0 +1,1941 @@
+{
+	"info": {
+		"_postman_id": "188702d0-8ee9-43c2-8e91-ad5b4e270297",
+		"name": "COS216 API Tests",
+		"description": "Thorough test suite for Register and GetAllProducts APIs",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "44061020",
+		"_collection_link": "https://johannel-6956085.postman.co/workspace/Johan-Nel's-Workspace~5e142490-fba2-4e84-8ec4-e9d6c80c49ff/collection/44061020-188702d0-8ee9-43c2-8e91-ad5b4e270297?action=share&source=collection_link&creator=44061020"
+	},
+	"item": [
+		{
+			"name": "LOGIN Endpoint",
+			"item": [
+				{
+					"name": "Login Bad Request",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"type\": \"Login\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Login Error",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"type\": \"Login\",\r\n    \"email\": \"testuser@up.ac.za\",\r\n    \"password\": \"TestUser123\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Login Success",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"type\": \"Login\",\r\n    \"email\": \"testuser@up.ac.za\",\r\n    \"password\": \"TestUser@123\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "CART Endpoint",
+			"item": [
+				{
+					"name": "Cart Add To Cart 1",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"type\": \"Cart\",\r\n    \"action\": \"add\",\r\n    \"apikey\": \"1hBtQYwDPiL2udJ8ojSaDsWoIVNFR4wR\",\r\n    \"product_id\": 123  \r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cart Update Cart Error",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"type\": \"Cart\",\r\n    \"action\": \"update\",\r\n    \"apikey\": \"1hBtQYwDPiL2udJ8ojSaDsWoIVNFR4wR\",\r\n    \"product_id\": 123,\r\n    \"quantity\": 8 \r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cart Get Cart 1",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"type\": \"Cart\",\r\n    \"action\": \"get\",\r\n    \"apikey\": \"1hBtQYwDPiL2udJ8ojSaDsWoIVNFR4wR\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cart Update Cart 1",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"type\": \"Cart\",\r\n    \"action\": \"update\",\r\n    \"apikey\": \"1hBtQYwDPiL2udJ8ojSaDsWoIVNFR4wR\",\r\n    \"product_id\": 123,\r\n    \"quantity\": 5\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cart Add To Cart 2",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"type\": \"Cart\",\r\n    \"action\": \"add\",\r\n    \"apikey\": \"1hBtQYwDPiL2udJ8ojSaDsWoIVNFR4wR\",\r\n    \"product_id\": 321  \r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cart Update Cart 2",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"type\": \"Cart\",\r\n    \"action\": \"update\",\r\n    \"apikey\": \"1hBtQYwDPiL2udJ8ojSaDsWoIVNFR4wR\",\r\n    \"product_id\": 321,\r\n    \"quantity\": 2\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cart Get Cart 2",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"type\": \"Cart\",\r\n    \"action\": \"get\",\r\n    \"apikey\": \"1hBtQYwDPiL2udJ8ojSaDsWoIVNFR4wR\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "ORDER Endpoint",
+			"item": [
+				{
+					"name": "Order Bad Request 1",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"type\": \"Order\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Order Bad Request 2",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"type\": \"Order\",\r\n    \"apikey\": \"1hBtQYwDPiL2udJ8ojSaDsWoIVNFR4wR\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Order Create Empty Cart Error",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"type\": \"Order\",\r\n    \"action\": \"create\",\r\n    \"apikey\": \"yby6Ulwp1BVdd3kVMp1TQzvNT7wC4lWa\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Order Create Success",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"type\": \"Order\",\r\n    \"action\": \"create\",\r\n    \"apikey\": \"1hBtQYwDPiL2udJ8ojSaDsWoIVNFR4wR\",\r\n    \"latitude\": -25.7545, \r\n    \"longitude\" : 28.2670\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Order Get Success (Customer)",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"type\": \"Order\",\r\n    \"action\": \"get\",\r\n    \"apikey\": \"1hBtQYwDPiL2udJ8ojSaDsWoIVNFR4wR\",\r\n    \"state\": \"All\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Order Update Error 1",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"type\": \"Order\",\r\n    \"action\": \"update\",\r\n    \"apikey\": \"1hBtQYwDPiL2udJ8ojSaDsWoIVNFR4wR\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Order Update Error 2",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"type\": \"Order\",\r\n    \"action\": \"update\",\r\n    \"apikey\": \"1hBtQYwDPiL2udJ8ojSaDsWoIVNFR4wR\",\r\n    \"order_id\": 2\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Order Update Success",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"type\": \"Order\",\r\n    \"action\": \"update\",\r\n    \"apikey\": \"1hBtQYwDPiL2udJ8ojSaDsWoIVNFR4wR\",\r\n    \"order_id\": 12,\r\n    \"latitude\": -25.7550,\r\n    \"longitude\": 28.2459 \r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Order Get Success (Courier)",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"type\": \"Order\",\r\n    \"action\": \"get\",\r\n    \"apikey\": \"cOuYT35eDnbygozNTw0KHoS551Qk536n\",\r\n    \"state\": \"All\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "DRONE Endpoint",
+			"item": [
+				{
+					"name": "Drone Bad Request",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"type\": \"Drone\",\r\n    \"apikey\": \"cOuYT35eDnbygozNTw0KHoS551Qk536n\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Drone Create Error",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"type\": \"Drone\",\r\n    \"action\": \"create\",\r\n    \"apikey\": \"1hBtQYwDPiL2udJ8ojSaDsWoIVNFR4wR\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Drone Create Success",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"type\": \"Drone\",\r\n    \"action\": \"create\",\r\n    \"apikey\": \"cOuYT35eDnbygozNTw0KHoS551Qk536n\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Drone Get Success (Courier)",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"type\": \"Drone\",\r\n    \"action\": \"get\",\r\n    \"apikey\": \"cOuYT35eDnbygozNTw0KHoS551Qk536n\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Drone Get Success (Customer)",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"type\": \"Drone\",\r\n    \"action\": \"get\",\r\n    \"apikey\": \"1hBtQYwDPiL2udJ8ojSaDsWoIVNFR4wR\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Drone Update Error (More than 5km)",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"apikey\": \"cOuYT35eDnbygozNTw0KHoS551Qk536n\",\r\n    \"type\": \"Drone\",\r\n    \"action\": \"update\",\r\n    \"drone_id\": 4,\r\n    \"latest_latitude\": -25.8000,\r\n    \"latest_longitude\": 28.3000\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Drone Update Success (Flying)",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"apikey\": \"cOuYT35eDnbygozNTw0KHoS551Qk536n\",\r\n    \"type\": \"Drone\",\r\n    \"action\": \"update\",\r\n    \"drone_id\": 4,\r\n    \"state\": \"Flying\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Drone Move Success",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"apikey\": \"cOuYT35eDnbygozNTw0KHoS551Qk536n\",\r\n    \"type\": \"Drone\",\r\n    \"action\": \"move\",\r\n    \"direction\": \"up\",\r\n    \"drone_id\": 4\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Drone Move Error",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"apikey\": \"cOuYT35eDnbygozNTw0KHoS551Qk536n\",\r\n    \"type\": \"Drone\",\r\n    \"action\": \"move\",\r\n    \"direction\": \"diagonal\",\r\n    \"drone_id\": 4\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Drone Crash Success",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"apikey\": \"cOuYT35eDnbygozNTw0KHoS551Qk536n\",\r\n    \"type\": \"Drone\",\r\n    \"action\": \"update\",\r\n    \"drone_id\": 4,\r\n    \"state\": \"Crashed\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Drone Update Success (Flying) 2",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"apikey\": \"cOuYT35eDnbygozNTw0KHoS551Qk536n\",\r\n    \"type\": \"Drone\",\r\n    \"action\": \"update\",\r\n    \"drone_id\": 4,\r\n    \"state\": \"Flying\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Drone ReturnToHQ Success 1",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"apikey\": \"cOuYT35eDnbygozNTw0KHoS551Qk536n\",\r\n    \"type\": \"Drone\",\r\n    \"action\": \"returnToHQ\",\r\n    \"drone_id\": 4\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Drone ReturnToHQ Success 2",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"apikey\": \"cOuYT35eDnbygozNTw0KHoS551Qk536n\",\r\n    \"type\": \"Drone\",\r\n    \"action\": \"returnToHQ\",\r\n    \"drone_id\": 4\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Drone Dispatch Success",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"apikey\": \"cOuYT35eDnbygozNTw0KHoS551Qk536n\",\r\n    \"type\": \"Drone\",\r\n    \"action\": \"dispatch\",\r\n    \"drone_id\": 4,\r\n    \"order_id\": 12\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Drone Deliver Error",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"apikey\": \"cOuYT35eDnbygozNTw0KHoS551Qk536n\",\r\n    \"type\": \"Drone\",\r\n    \"action\": \"Deliver\",\r\n    \"drone_id\": 4\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Drone Update Success (Location)",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"apikey\": \"cOuYT35eDnbygozNTw0KHoS551Qk536n\",\r\n    \"type\": \"Drone\",\r\n    \"action\": \"update\",\r\n    \"drone_id\": 4,\r\n    \"latest_latitude\": -25.7550,\r\n    \"latest_longitude\": 28.2459\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Drone Deliver Success",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"apikey\": \"cOuYT35eDnbygozNTw0KHoS551Qk536n\",\r\n    \"type\": \"Drone\",\r\n    \"action\": \"Deliver\",\r\n    \"drone_id\": 4\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Drone Update Altitude Success",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"apikey\": \"cOuYT35eDnbygozNTw0KHoS551Qk536n\",\r\n    \"type\": \"Drone\",\r\n    \"action\": \"updateAltitude\",\r\n    \"drone_id\": 4,\r\n    \"increase\": 5\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Drone Cancel Success",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"apikey\": \"cOuYT35eDnbygozNTw0KHoS551Qk536n\",\r\n    \"type\": \"Drone\",\r\n    \"action\": \"Cancel\",\r\n    \"drone_id\": 4\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Drone Update Success (Flying) 3",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"apikey\": \"cOuYT35eDnbygozNTw0KHoS551Qk536n\",\r\n    \"type\": \"Drone\",\r\n    \"action\": \"update\",\r\n    \"drone_id\": 4,\r\n    \"state\": \"Flying\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Drone Update Altitude Crash",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "your_password_here",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "u24594475",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"apikey\": \"cOuYT35eDnbygozNTw0KHoS551Qk536n\",\r\n    \"type\": \"Drone\",\r\n    \"action\": \"updateAltitude\",\r\n    \"drone_id\": 4,\r\n    \"altitude\": 35\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+							"protocol": "https",
+							"host": [
+								"wheatley",
+								"cs",
+								"up",
+								"ac",
+								"za"
+							],
+							"path": [
+								"u24594475",
+								"api.php"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "{{base_url}}",
+			"value": "https://wheatley.cs.up.ac.za/u24594475/api.php",
+			"type": "string"
+		}
+	]
+}
