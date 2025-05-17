@@ -1,6 +1,6 @@
 # u24594475 API Documentation
 
-This document provides comprehensive documentation for the my COS216 API, detailing all available endpoints, required parameters, and example requests/responses.
+This document provides comprehensive documentation for the our COS216 API, detailing all available endpoints, required parameters, and example requests/responses.
 
 ## Table of Contents
 1. [Authentication](#authentication)
@@ -11,6 +11,7 @@ This document provides comprehensive documentation for the my COS216 API, detail
 6. [Cart](#cart)
 7. [Orders](#orders)
 8. [Drones](#drones)
+9. [Global Variables](#global-variables)
 
 ---
 
@@ -406,8 +407,12 @@ Handles order creation, updates, and retrieval with new functionality for courie
 
 ### Order Actions:
 - `create` or `place`: Creates a new order from the user's cart and clears their cart automatically. A user cannot place an order with more than 7 products.
-- `update`: Updates order fields (like location or state)
-- `get`: Retrieves orders based on user type (for a Customer, it retrieves all of this customer's orders, for a Courier, it retrieves all orders with its state as "Storage" (by default), or orders with the state as specified in the request.)
+- `update`: Updates order fields (like location, state, or drone assignment)
+- `get`: Retrieves orders based on user type (for a Customer, it retrieves all of this customer's orders; for a Courier, it retrieves all orders with state "Storage" by default, or as specified in the request.)
+
+#### New Functionality:
+- **User can specify order fields** (`drone_id`, `latitude`, `longitude`, `state`) when creating an order. If not specified, defaults are used (`drone_id`, `latitude`, `longitude` are `null`, `state` is `"Storage"`).
+- **Order's delivery location must be within 5km of HQ** to assign a drone (`drone_id`). If not, the API will return an error and not assign the drone.
 
 #### Parameters:
 | Parameter | Required | Description | Valid Values |
@@ -415,66 +420,34 @@ Handles order creation, updates, and retrieval with new functionality for courie
 | apikey | Yes | User's API key | - |
 | action | Yes | Action to perform | "create", "update", "get" |
 | order_id | For update | ID of order to update | Existing order ID |
-| latitude | For update | Delivery location latitude | -90.0 to 90.0 |
-| longitude | For update | Delivery location longitude | -180.0 to 180.0 |
-| state | For get update | Order state | "Storage", "Dispatched", "Delivered" |
+| latitude | For create/update | Delivery location latitude | -90.0 to 90.0 |
+| longitude | For create/update | Delivery location longitude | -180.0 to 180.0 |
+| drone_id | For create/update | Drone assigned to order | Existing drone ID or null |
+| state | For create/update/get | Order state | "Storage", "Dispatched", "Delivered" |
 
-
-#### Example Request (Create Order):
+#### Example Request (Create Order with custom fields):
 ```json
 {
   "type": "Order",
   "apikey": "valid_customer_apikey",
-  "action": "create"
+  "action": "create",
+  "latitude": -25.75,
+  "longitude": 28.25,
+  "state": "Storage"
 }
 ```
 
-#### Example Request (Update Order - Courier):
+#### Example Request (Update Order - assign drone):
 ```json
 {
   "type": "Order",
   "apikey": "valid_courier_apikey",
   "action": "update",
   "order_id": 123,
-  "state": "Dispatched",
-  "latitude": -26.2041,
-  "longitude": 28.0473
+  "drone_id": 1
 }
 ```
-
-#### Example Request (Get Storage Orders):
-```json
-{
-  "type": "Order",
-  "apikey": "valid_apikey",
-  "action": "get"
-}
-```
-
-#### Example Response (Get Orders - Courier):
-```json
-{
-  "status": "success",
-  "timestamp": 1625097600000,
-  "data": [
-    {
-      "order_id": 123,
-      "customer_id": 456,
-      "state": "Storage",
-      "delivery_date": "2025-05-25 13:30:05",
-      "latitude": -26.2041,
-      "longitude": 28.0473,
-      "products": [
-        {
-          "product_id": 789,
-          "quantity": 2
-        }
-      ]
-    }
-  ],
-  "code": 200
-}
-```
+> **Note:** If the order's delivery location is not within 5km of HQ, assigning a drone will fail with an error.
 
 ---
 
@@ -482,74 +455,61 @@ Handles order creation, updates, and retrieval with new functionality for courie
 
 Manages drone inventory and operations for Couriers.
 
-### Drone Actions:
-- `create`: Adds a new drone to the system. You can specify drone attributes when creating a drone. If you don't, default values (usually NULL) will be used.
-- `update`: Modifies drone properties as specified in the request object
-- `get`: Retrieves all drone information. If the user is a customer, only drones associated with their orders will be returned. If the user is a courier, all drones will be returned. You can specify an `order_id` to return only that drone's information (for a customer, that drone must be associated with one of their orders to be returned)
-- `move` along with a `direction`: Couriers can easily move a drone by specifying a `drone_id` along with a move direction. This will automatically move the drone `0.0001` degrees in that direction by default (the API will automatically change the `latest_latitude` and `latest_longitude` attributes according to the move direction. You can speficy the distance that the drone moves in the specified direction by adding a `distance` (in degrees) to the request object. When you use `move`, the drone that you move's attributes will be returned by the API.
+### Drone Attributes:
+- `drone_id`
+- `current_operator_id`
+- `is_available`
+- `latest_latitude`
+- `latest_longitude`
+- `altitude`
+- `battery_level`
+- `state` (new: `"Grounded at HQ"`, `"Flying"`, or `"Crashed"`)
 
-#### Parameters:
-| Parameter | Required | Description | Valid Values |
-|-----------|----------|-------------|--------------|
-| apikey | Yes | User's API key | - |
-| action | Yes | Action to perform | "create", "update", "get" |
-| drone_id | For get or update | ID of drone to return update | Existing drone ID |
-| current_operator_id | No | Assigns operator | Valid user ID or null |
-| is_available | No | Availability status | true/false |
-| latest_latitude | No | Current latitude | -90.0 to 90.0 |
-| latest_longitude | No | Current longitude | -180.0 to 180.0 |
-| altitude | No | Current altitude | >= 0 |
-| battery_level | No | Battery percentage | 0-100 |
+### Drone Actions:
+- `create`: Adds a new drone to the system. You can specify drone attributes when creating a drone. If you don't, default values will be used.
+    - **By default, the drone's `latest_latitude` and `latest_longitude` are set to the HQ coordinates.**
+    - **By default, the drone's `state` is `"Grounded at HQ"` and `is_available` is `true`.**
+- `update`: Modifies drone properties as specified in the request object.
+    - **If `state` is set to `"Grounded at HQ"`, `is_available` is automatically set to `true`. If set to `"Flying"` or `"Crashed"`, `is_available` is set to `false`.**
+    - **When updating `latest_latitude` or `latest_longitude`, the new location must be within 5km of HQ. If not, the API returns an error.**
+- `get`: Retrieves all drone information. If the user is a customer, only drones associated with their orders will be returned. If the user is a courier, all drones will be returned.
+- `move` along with a `direction`: Couriers can move a drone by specifying a `drone_id` and a direction. The drone's new location must remain within 5km of HQ.
+- `returnToHQ`: Returns the drone to the HQ coordinates, sets its `state` to `"Grounded at HQ"`, and marks it as available.
 
 #### Example Request (Create Drone):
 ```json
 {
   "type": "Drone",
-  "apikey": "valid_inventory_manager_apikey",
+  "apikey": "valid_courier_apikey",
   "action": "create"
 }
 ```
+> **Note:** The drone will be created at the HQ coordinates and in the `"Grounded at HQ"` state by default.
 
-#### Example Request (Update Drone):
+#### Example Request (Move Drone):
 ```json
 {
   "type": "Drone",
   "apikey": "valid_courier_apikey",
-  "action": "update",
+  "action": "move",
   "drone_id": 1,
-  "current_operator_id": 5,
-  "is_available": false,
-  "latest_latitude": -26.2041,
-  "latest_longitude": 28.0473,
-  "altitude": 150.5,
-  "battery_level": 85
+  "direction": "up"
 }
 ```
+> **Note:** If the move would take the drone outside a 5km radius from HQ, the API will return an error.
 
-#### Example Response (Get Drones):
+#### Example Request (Return Drone to HQ):
 ```json
 {
-  "status": "success",
-  "timestamp": 1625097600000,
-  "data": [
-    {
-      "drone_id": 1,
-      "current_operator_id": 5,
-      "is_available": false,
-      "latest_latitude": -26.2041,
-      "latest_longitude": 28.0473,
-      "altitude": 150.5,
-      "battery_level": 85,
-      "created_at": "2025-04-28 21:04:38",
-      "updated_at": "2025-04-28 21:15:22"
-    }
-  ],
-  "code": 200
+  "type": "Drone",
+  "apikey": "valid_courier_apikey",
+  "action": "returnToHQ",
+  "drone_id": 1
 }
 ```
+> **Note:** This will set the drone's location to the HQ coordinates, state to `"Grounded at HQ"`, and `is_available` to `true`.
 
 ---
-
 
 ## Error Handling
 All errors follow the same format:
@@ -571,6 +531,19 @@ Common error codes:
 - `422`: Unprocessable entity (Your request object cannot be processed for some reason)
 - `500`: Server error (when this happens, something is wrong on our side!)
 
+---
 
+## Global Variables
+
+**HQ Coordinates:**  
+The API uses global variables for the HQ coordinates, which are used for all drone and order delivery logic.  
+You can update these in the code by changing the following constants at the top of `api.php`:
+
+```php
+define('HQ_LATITUDE', -25.7472);
+define('HQ_LONGITUDE', 28.2511);
+```
+
+All references to the HQ location in the API use these variables, making it easy to update the HQ location in one place.
 
 ---

@@ -10,6 +10,9 @@
     ini_set('display_startup_errors', 1);
     error_reporting(E_ALL);
 
+    define('HQ_LATITUDE', -25.7472);
+    define('HQ_LONGITUDE', 28.2511);
+
     class Database {
         private static $instance = null;
         private $connection;
@@ -1323,6 +1326,30 @@
                 if ($userType !== 'Courier') {
                     return $this->error("Unauthorized: Only Couriers can update drone_id", 403);
                 }
+
+
+                $lat = null;
+                $lon = null;
+                if (isset($data['latitude']) && isset($data['longitude'])) {
+                    $lat = (float)$data['latitude'];
+                    $lon = (float)$data['longitude'];
+                } else {
+                    $stmt = $this->connection->prepare("SELECT latitude, longitude FROM orders WHERE id = ?");
+                    $stmt->bind_param("i", $orderId);
+                    $stmt->execute();
+                    $result = $stmt->get_result();
+                    if ($row = $result->fetch_assoc()) {
+                        $lat = isset($data['latitude']) ? (float)$data['latitude'] : (float)$row['latitude'];
+                        $lon = isset($data['longitude']) ? (float)$data['longitude'] : (float)$row['longitude'];
+                    }
+                }
+
+                if ($lat !== null && $lon !== null) {
+                    if (!$this->isWithin5kmOfHQ($lat, $lon)) {
+                        return $this->error("Order is too far away to be delivered by a drone (must be within 5km of HQ)", 400);
+                    }
+                }
+
                 $updates[] = "drone_id = ?";
                 $params[] = $data['drone_id'] === null ? null : (int)$data['drone_id'];
             }
@@ -1339,7 +1366,6 @@
                 return $this->error("Database error: failed to prepare statement", 500);
             }
 
-            // Build types string for bind_param
             $types = '';
             foreach ($params as $i => $param) {
                 if (is_int($param) || is_null($param)) {
@@ -1362,6 +1388,23 @@
                 'data' => 'Order updated successfully',
                 'code' => 200
             ];
+        }
+
+        private function isWithin5kmOfHQ($lat, $long) {
+            $hqLat = HQ_LATITUDE;
+            $hqLong = HQ_LONGITUDE;
+            $earthRadius = 6371;
+
+            $dLat = deg2rad($lat - $hqLat);
+            $dLon = deg2rad($long - $hqLong);
+
+            $a = sin($dLat/2) * sin($dLat/2) +
+                cos(deg2rad($hqLat)) * cos(deg2rad($lat)) *
+                sin($dLon/2) * sin($dLon/2);
+            $c = 2 * atan2(sqrt($a), sqrt(1-$a));
+            $distance = $earthRadius * $c;
+
+            return $distance <= 5;
         }
 
         private function handleGetStorageOrders($userId, $userType, $data) {
@@ -1532,8 +1575,8 @@
 
             $current_operator_id = null;
             $is_available = true;
-            $latest_latitude = -25.7472;
-            $latest_longitude = 28.2511;
+            $latest_latitude = HQ_LATITUDE;
+            $latest_longitude = HQ_LONGITUDE;
             $altitude = null;
             $battery_level = 100;
             $state = 'Grounded at HQ';
@@ -1614,8 +1657,8 @@
         }
 
         private function handleReturnToHQ($droneId) {
-            $hqLat = -25.7472;
-            $hqLong = 28.2511;
+            $hqLat = HQ_LATITUDE;
+            $hqLong = HQ_LONGITUDE;
             $state = 'Grounded at HQ';
             $is_available = 1;
 
@@ -1941,8 +1984,8 @@
 
         private function isWithin5kmOfHQ($lat, $long) {
             //Check if the drone is within 5km of HQ
-            $hqLat = -25.7472;
-            $hqLong = 28.2511;
+            $hqLat = HQ_LATITUDE;
+            $hqLong = HQ_LONGITUDE;
             $earthRadius = 6371;
 
             $dLat = deg2rad($lat - $hqLat);
