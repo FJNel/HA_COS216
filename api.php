@@ -1430,13 +1430,13 @@
                     }
                     if ($state === 'All') {
                         $orderStmt = $this->connection->prepare("
-                            SELECT id, customer_id, state, delivery_date, created_at, latitude, longitude 
+                            SELECT id, customer_id, drone_id, state, delivery_date, created_at, latitude, longitude 
                             FROM orders 
                             ORDER BY created_at DESC
                         ");
                     } else {
                         $orderStmt = $this->connection->prepare("
-                            SELECT id, customer_id, state, delivery_date, created_at, latitude, longitude 
+                            SELECT id, customer_id, drone_id, state, delivery_date, created_at, latitude, longitude 
                             FROM orders 
                             WHERE state = ?
                             ORDER BY created_at DESC
@@ -1446,7 +1446,7 @@
                     $orderStmt->execute();
                 } else {
                     $orderStmt = $this->connection->prepare("
-                        SELECT id, customer_id, state, delivery_date, created_at, latitude, longitude 
+                        SELECT id, customer_id, drone_id, state, delivery_date, created_at, latitude, longitude 
                         FROM orders 
                         WHERE customer_id = ?
                         ORDER BY created_at DESC
@@ -1478,6 +1478,7 @@
                     $orders[] = [
                         'order_id' => $order['id'],
                         'customer_id' => $order['customer_id'],
+                        'drone_id' => $order['drone_id'],
                         'state' => $order['state'],
                         'delivery_date' => $order['delivery_date'],
                         'created_at' => $order['created_at'],
@@ -1535,23 +1536,19 @@
             switch ($action) {
                 case 'create':
                     return $this->handleCreateDrone($data);
-                    break;
                 case 'update':
                     if ($userType !== 'Courier') {
                         return $this->error("Unauthorized: Only Couriers can update drones", 403);
                     }
-                    return $this->handleUpdateDrone($data);
-                    break;
+                    return $this->handleUpdateDrone($data, $userId);
                 case 'get':
                     return $this->handleGetDrones($data);
-                    break;
                 case 'move':
                     if ($userType !== 'Courier') {
                         return $this->error("Unauthorized: Only Couriers can move drones", 403);
                     }
                     return $this->handleMoveDrone($data);
-                    break;
-                case 'returnToHQ':
+                case 'returntohq':
                     if ($userType !== 'Courier') {
                         return $this->error("Unauthorized: Only Couriers can move drones", 403);
                     }
@@ -1559,9 +1556,32 @@
                         return $this->error("drone_id is required for returnToHQ", 400);
                     }
                     return $this->handleReturnToHQ($data['drone_id']);
-                    break;
+                case 'dispatch':
+                    if ($userType !== 'Courier') {
+                        return $this->error("Unauthorized: Only Couriers can dispatch drones", 403);
+                    }
+                    if (!isset($data['drone_id']) || !isset($data['order_id'])) {
+                        return $this->error("drone_id and order_id are required for dispatch", 400);
+                    }
+                    return $this->handleDispatch($userId, $data['drone_id'], $data['order_id']);
+                case 'deliver':
+                    if ($userType !== 'Courier') {
+                        return $this->error("Unauthorized: Only Couriers can deliver orders", 403);
+                    }
+                    if (!isset($data['drone_id'])) {
+                        return $this->error("drone_id is required for deliver", 400);
+                    }
+                    return $this->handleDeliver($userId, $data['drone_id']);
+                case 'cancel':
+                    if ($userType !== 'Courier') {
+                        return $this->error("Unauthorized: Only Couriers can cancel drone deliveries", 403);
+                    }
+                    if (!isset($data['drone_id'])) {
+                        return $this->error("drone_id is required for cancel", 400);
+                    }
+                    return $this->handleCancel($userId, $data['drone_id']);
                 default:
-                    return $this->error("Invalid action. Must be 'create' or 'place', 'update', 'get' or 'move", 400);
+                    return $this->error("Invalid action. Must be 'create', 'update', 'get', 'move', 'returnToHQ', 'dispatch', 'deliver', or 'cancel'", 400);
             }
         }
 
@@ -1610,7 +1630,6 @@
                 $state = $data['state'];
             }
 
-            // Set is_available based on state
             $is_available = ($state === 'Grounded at HQ') ? 1 : 0;
 
             $stmt = $this->connection->prepare("
@@ -1664,7 +1683,7 @@
 
             $stmt = $this->connection->prepare("
                 UPDATE drones 
-                SET latest_latitude = ?, latest_longitude = ?, state = ?, is_available = ?
+                SET latest_latitude = ?, latest_longitude = ?, state = ?, is_available = ?, current_operator_id = NULL
                 WHERE id = ?
             ");
             if (!$stmt) {
@@ -1682,7 +1701,7 @@
             ];
         }
 
-        private function handleUpdateDrone($data) {
+        private function handleUpdateDrone($data, $courierId) {
             if (!isset($data['drone_id'])) {
                 return $this->error("drone_id is required for update", 400);
             }
@@ -1691,6 +1710,17 @@
             $updates = [];
             $params = [];
             $types = '';
+
+            $stmt = $this->connection->prepare("SELECT state FROM drones WHERE id = ?");
+            $stmt->bind_param("i", $droneId);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $currentState = null;
+            if ($row = $result->fetch_assoc()) {
+                $currentState = $row['state'];
+            } else {
+                return $this->error("Drone not found", 404);
+            }
 
             $latitudeUpdate = array_key_exists('latest_latitude', $data);
             $longitudeUpdate = array_key_exists('latest_longitude', $data);
@@ -1727,9 +1757,7 @@
             }
 
             if (isset($data['current_operator_id'])) {
-                $updates[] = "current_operator_id = ?";
-                $params[] = $data['current_operator_id'] === null ? null : (int)$data['current_operator_id'];
-                $types .= 'i';
+                return $this->error("You cannot update current_operator_id manually. It is managed by the API.", 400);
             }
 
             if (isset($data['is_available'])) {
@@ -1755,15 +1783,33 @@
             }
 
             if (isset($data['state'])) {
-                if (!in_array($data['state'], ['Grounded at HQ', 'Flying', 'Crashed'])) {
+                $newState = $data['state'];
+                if (!in_array($newState, ['Grounded at HQ', 'Flying', 'Crashed'])) {
                     return $this->error("Invalid state. Must be 'Grounded at HQ', 'Flying', or 'Crashed'", 400);
                 }
                 $updates[] = "state = ?";
-                $params[] = $data['state'];
+                $params[] = $newState;
                 $types .= 's';
-                $updates[] = "is_available = ?";
-                $params[] = ($data['state'] === 'Grounded at HQ') ? 1 : 0;
-                $types .= 'i';
+
+                if ($newState === 'Grounded at HQ') {
+                    $updates[] = "is_available = ?";
+                    $params[] = 1;
+                    $types .= 'i';
+                    $updates[] = "current_operator_id = ?";
+                    $params[] = null;
+                    $types .= 'i';
+                } elseif ($newState === 'Flying') {
+                    $updates[] = "is_available = ?";
+                    $params[] = 0;
+                    $types .= 'i';
+                    $updates[] = "current_operator_id = ?";
+                    $params[] = $courierId;
+                    $types .= 'i';
+                } elseif ($newState === 'Crashed') {
+                    $updates[] = "is_available = ?";
+                    $params[] = 0;
+                    $types .= 'i';
+                }
             }
 
             if (empty($updates)) {
@@ -1966,6 +2012,151 @@
             ];
         }
 
+        private function handleDispatch($courierId, $droneId, $orderId) {
+            $stmt = $this->connection->prepare("SELECT state, is_available FROM drones WHERE id = ?");
+            $stmt->bind_param("i", $droneId);
+            $stmt->execute();
+            $drone = $stmt->get_result()->fetch_assoc();
+            if (!$drone) {
+                return $this->error("Drone not found", 404);
+            }
+            if ($drone['state'] !== 'Grounded at HQ' || !$drone['is_available']) {
+                return $this->error("Drone must be 'Grounded at HQ' and available to dispatch", 400);
+            }
+
+            $stmt = $this->connection->prepare("SELECT state, drone_id, latitude, longitude FROM orders WHERE id = ?");
+            $stmt->bind_param("i", $orderId);
+            $stmt->execute();
+            $order = $stmt->get_result()->fetch_assoc();
+            if (!$order) {
+                return $this->error("Order not found", 404);
+            }
+            if ($order['state'] !== 'Storage') {
+                return $this->error("Order must be in 'Storage' state to dispatch", 400);
+            }
+            if (!is_null($order['drone_id'])) {
+                return $this->error("Order already has a drone assigned", 400);
+            }
+            if ($order['latitude'] === null || $order['longitude'] === null) {
+                return $this->error("Order does not have a delivery location set", 400);
+            }
+            if (!$this->isWithin5kmOfHQ((float)$order['latitude'], (float)$order['longitude'])) {
+                return $this->error("Order's delivery location is too far from HQ (must be within 5km) for drone dispatch", 400);
+            }
+
+            $this->connection->begin_transaction();
+            try {
+                $stmt = $this->connection->prepare("UPDATE orders SET state = 'Dispatched', drone_id = ? WHERE id = ?");
+                $stmt->bind_param("ii", $droneId, $orderId);
+                $stmt->execute();
+
+                $stmt = $this->connection->prepare("UPDATE drones SET state = 'Flying', is_available = 0, current_operator_id = ? WHERE id = ?");
+                $stmt->bind_param("ii", $courierId, $droneId);
+                $stmt->execute();
+
+                $this->connection->commit();
+                return [
+                    'status' => 'success',
+                    'timestamp' => round(microtime(true) * 1000),
+                    'data' => 'Drone dispatched and assigned to order',
+                    'code' => 200
+                ];
+            } catch (Exception $e) {
+                $this->connection->rollback();
+                return $this->error("Failed to dispatch drone: " . $e->getMessage(), 500);
+            }
+        }
+
+        private function handleDeliver($courierId, $droneId) {
+            $stmt = $this->connection->prepare("SELECT state, latest_latitude, latest_longitude FROM drones WHERE id = ?");
+            $stmt->bind_param("i", $droneId);
+            $stmt->execute();
+            $drone = $stmt->get_result()->fetch_assoc();
+            if (!$drone) {
+                return $this->error("Drone not found", 404);
+            }
+            if ($drone['state'] !== 'Flying') {
+                return $this->error("Drone must be 'Flying' to deliver", 400);
+            }
+
+            $stmt = $this->connection->prepare("SELECT id, state, latitude, longitude FROM orders WHERE drone_id = ? AND state = 'Dispatched'");
+            $stmt->bind_param("i", $droneId);
+            $stmt->execute();
+            $order = $stmt->get_result()->fetch_assoc();
+            if (!$order) {
+                return $this->error("No dispatched order assigned to this drone", 400);
+            }
+
+            $distance = $this->distanceBetween(
+                $drone['latest_latitude'], $drone['latest_longitude'],
+                $order['latitude'], $order['longitude']
+            );
+            if ($distance > 0.01) { // 0.01 km = 10 meters
+                return $this->error("Drone must be within 10 meters of the delivery location to deliver the order", 400);
+            }
+
+            $this->connection->begin_transaction();
+            try {
+                $now = date('Y-m-d H:i:s');
+                $stmt = $this->connection->prepare("UPDATE orders SET state = 'Delivered', drone_id = NULL, delivery_date = ? WHERE id = ?");
+                $stmt->bind_param("si", $now, $order['id']);
+                $stmt->execute();
+
+                $stmt = $this->connection->prepare("UPDATE drones SET state = 'Grounded at HQ', is_available = 1, current_operator_id = NULL, latest_latitude = ?, latest_longitude = ? WHERE id = ?");
+                $stmt->bind_param("ddi", HQ_LATITUDE, HQ_LONGITUDE, $droneId);
+                $stmt->execute();
+
+                $this->connection->commit();
+                return [
+                    'status' => 'success',
+                    'timestamp' => round(microtime(true) * 1000),
+                    'data' => 'Order delivered successfully',
+                    'code' => 200
+                ];
+            } catch (Exception $e) {
+                $this->connection->rollback();
+                return $this->error("Failed to deliver order: " . $e->getMessage(), 500);
+            }
+        }
+
+        private function handleCancel($courierId, $droneId) {
+            $stmt = $this->connection->prepare("SELECT state FROM drones WHERE id = ?");
+            $stmt->bind_param("i", $droneId);
+            $stmt->execute();
+            $drone = $stmt->get_result()->fetch_assoc();
+            if (!$drone) {
+                return $this->error("Drone not found", 404);
+            }
+
+            $stmt = $this->connection->prepare("SELECT id, state FROM orders WHERE drone_id = ?");
+            $stmt->bind_param("i", $droneId);
+            $stmt->execute();
+            $order = $stmt->get_result()->fetch_assoc();
+
+            $this->connection->begin_transaction();
+            try {
+                if ($order && $order['state'] !== 'Delivered') {
+                    $stmt = $this->connection->prepare("UPDATE orders SET state = 'Storage', drone_id = NULL WHERE id = ?");
+                    $stmt->bind_param("i", $order['id']);
+                    $stmt->execute();
+                }
+                $stmt = $this->connection->prepare("UPDATE drones SET latest_latitude = ?, latest_longitude = ?, state = 'Grounded at HQ', is_available = 1, current_operator_id = NULL WHERE id = ?");
+                $stmt->bind_param("ddi", HQ_LATITUDE, HQ_LONGITUDE, $droneId);
+                $stmt->execute();
+
+                $this->connection->commit();
+                return [
+                    'status' => 'success',
+                    'timestamp' => round(microtime(true) * 1000),
+                    'data' => 'Drone cancelled and returned to HQ',
+                    'code' => 200
+                ];
+            } catch (Exception $e) {
+                $this->connection->rollback();
+                return $this->error("Failed to cancel drone delivery: " . $e->getMessage(), 500);
+            }
+        }
+
         private function getUserIdByApiKey($apiKey) {
             $stmt = $this->connection->prepare("SELECT id FROM users WHERE api_key = ?");
             $stmt->bind_param("s", $apiKey);
@@ -1983,7 +2174,6 @@
         }
 
         private function isWithin5kmOfHQ($lat, $long) {
-            //Check if the drone is within 5km of HQ
             $hqLat = HQ_LATITUDE;
             $hqLong = HQ_LONGITUDE;
             $earthRadius = 6371;
@@ -1998,6 +2188,17 @@
             $distance = $earthRadius * $c;
 
             return $distance <= 5;
+        }
+
+        private function distanceBetween($lat1, $lon1, $lat2, $lon2) {
+            $earthRadius = 6371;
+            $dLat = deg2rad($lat2 - $lat1);
+            $dLon = deg2rad($lon2 - $lon1);
+            $a = sin($dLat/2) * sin($dLat/2) +
+                cos(deg2rad($lat1)) * cos(deg2rad($lat2)) *
+                sin($dLon/2) * sin($dLon/2);
+            $c = 2 * atan2(sqrt($a), sqrt(1-$a));
+            return $earthRadius * $c;
         }
 
         private function error($message, $code) {

@@ -403,16 +403,15 @@ Use `type: "Cart"` along with an `action` and a valid `apikey`.
 
 ## Orders
 
-Handles order creation, updates, and retrieval with new functionality for couriers and customers.
+Handles order creation, updates, and retrieval for both customers and couriers.
 
 ### Order Actions:
 - `create` or `place`: Creates a new order from the user's cart and clears their cart automatically. A user cannot place an order with more than 7 products.
-- `update`: Updates order fields (like location, state, or drone assignment)
-- `get`: Retrieves orders based on user type (for a Customer, it retrieves all of this customer's orders; for a Courier, it retrieves all orders with state "Storage" by default, or as specified in the request.)
-
-#### New Functionality:
-- **User can specify order fields** (`drone_id`, `latitude`, `longitude`, `state`) when creating an order. If not specified, defaults are used (`drone_id`, `latitude`, `longitude` are `null`, `state` is `"Storage"`).
-- **Order's delivery location must be within 5km of HQ** to assign a drone (`drone_id`). If not, the API will return an error and not assign the drone.
+    - **You can specify order fields** (`drone_id`, `latitude`, `longitude`, `state`) when creating an order. If not specified, defaults are used (`drone_id`, `latitude`, `longitude` are `null`, `state` is `"Storage"`).
+- `update`: Updates order fields (like location, state, or drone assignment).
+    - **A drone can only be assigned to an order if the order's delivery location is within 5km of HQ.** If not, the API returns an error.
+- `get`: Retrieves orders based on user type (for a Customer, it retrieves all of this customer's orders; for a Courier, it retrieves all orders with state "Storage" by default, or as specified in the request).
+    - **Returned order objects include the `drone_id` field.**
 
 #### Parameters:
 | Parameter | Required | Description | Valid Values |
@@ -449,6 +448,30 @@ Handles order creation, updates, and retrieval with new functionality for courie
 ```
 > **Note:** If the order's delivery location is not within 5km of HQ, assigning a drone will fail with an error.
 
+#### Example Response (Get Orders):
+```json
+{
+  "status": "success",
+  "timestamp": 1625097600000,
+  "data": [
+    {
+      "order_id": 123,
+      "customer_id": 5,
+      "drone_id": 1,
+      "state": "Dispatched",
+      "delivery_date": "2025-05-20 14:00:00",
+      "created_at": "2025-05-18 10:00:00",
+      "latitude": -25.75,
+      "longitude": 28.25,
+      "products": [
+        {"product_id": 10, "quantity": 2}
+      ]
+    }
+  ],
+  "code": 200
+}
+```
+
 ---
 
 ## Drones
@@ -463,18 +486,24 @@ Manages drone inventory and operations for Couriers.
 - `latest_longitude`
 - `altitude`
 - `battery_level`
-- `state` (new: `"Grounded at HQ"`, `"Flying"`, or `"Crashed"`)
+- `state` (either `"Grounded at HQ"`, `"Flying"`, or `"Crashed"`)
 
 ### Drone Actions:
 - `create`: Adds a new drone to the system. You can specify drone attributes when creating a drone. If you don't, default values will be used.
     - **By default, the drone's `latest_latitude` and `latest_longitude` are set to the HQ coordinates.**
     - **By default, the drone's `state` is `"Grounded at HQ"` and `is_available` is `true`.**
 - `update`: Modifies drone properties as specified in the request object.
-    - **If `state` is set to `"Grounded at HQ"`, `is_available` is automatically set to `true`. If set to `"Flying"` or `"Crashed"`, `is_available` is set to `false`.**
+    - **If `state` is set to `"Grounded at HQ"`, `is_available` is automatically set to `true` and `current_operator_id` is cleared.**
+    - **If `state` is set to `"Flying"`, `is_available` is set to `false` and `current_operator_id` is set to the courier performing the update.**
+    - **If `state` is set to `"Crashed"`, `is_available` is set to `false` and `current_operator_id` remains unchanged.**
+    - **You cannot update `current_operator_id` manually; the API manages this automatically.**
     - **When updating `latest_latitude` or `latest_longitude`, the new location must be within 5km of HQ. If not, the API returns an error.**
 - `get`: Retrieves all drone information. If the user is a customer, only drones associated with their orders will be returned. If the user is a courier, all drones will be returned.
 - `move` along with a `direction`: Couriers can move a drone by specifying a `drone_id` and a direction. The drone's new location must remain within 5km of HQ.
-- `returnToHQ`: Returns the drone to the HQ coordinates, sets its `state` to `"Grounded at HQ"`, and marks it as available.
+- `returnToHQ`: Returns the drone to the HQ coordinates, sets its `state` to `"Grounded at HQ"`, marks it as available, and clears `current_operator_id`.
+- `dispatch` (Courier only): Assigns a drone to an order and sets both to "Dispatched"/"Flying". Only possible if the order is in "Storage" and has no drone assigned, and the drone is "Grounded at HQ" and available. The drone's `current_operator_id` is set to the courier. The order's delivery location must be within 5km of the HQ for this action to work.
+- `deliver` (Courier only): Delivers the order if the drone is "Flying" and assigned to a "Dispatched" order. The drone must be within 10 meters of the order's delivery location. The order is marked as "Delivered", the drone is returned to HQ, and `current_operator_id` is cleared.
+- `cancel` (Courier only): Cancels the delivery. The drone is returned to HQ, the order (if not delivered) is set back to "Storage" and unassigned, and `current_operator_id` is cleared.
 
 #### Example Request (Create Drone):
 ```json
@@ -507,7 +536,41 @@ Manages drone inventory and operations for Couriers.
   "drone_id": 1
 }
 ```
-> **Note:** This will set the drone's location to the HQ coordinates, state to `"Grounded at HQ"`, and `is_available` to `true`.
+> **Note:** This will set the drone's location to the HQ coordinates, state to `"Grounded at HQ"`, `is_available` to `true`, and clear the operator.
+
+#### Example Request (Dispatch Drone to Order):
+```json
+{
+  "type": "Drone",
+  "apikey": "valid_courier_apikey",
+  "action": "dispatch",
+  "drone_id": 1,
+  "order_id": 123
+}
+```
+> **Note:** The drone must be available and at HQ, and the order must be in "Storage" with no drone assigned.
+
+#### Example Request (Deliver Order):
+```json
+{
+  "type": "Drone",
+  "apikey": "valid_courier_apikey",
+  "action": "deliver",
+  "drone_id": 1
+}
+```
+> **Note:** The drone must be "Flying", assigned to a "Dispatched" order, and within 10 meters of the delivery location.
+
+#### Example Request (Cancel Delivery):
+```json
+{
+  "type": "Drone",
+  "apikey": "valid_courier_apikey",
+  "action": "cancel",
+  "drone_id": 1
+}
+```
+> **Note:** The drone and order will be reset as if the delivery never happened (unless the order is already delivered).
 
 ---
 
