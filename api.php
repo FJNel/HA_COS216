@@ -1605,7 +1605,7 @@
             $is_available = true;
             $latest_latitude = HQ_LATITUDE;
             $latest_longitude = HQ_LONGITUDE;
-            $altitude = null;
+            $altitude = 0;
             $battery_level = 100;
             $state = 'Grounded at HQ';
 
@@ -1620,9 +1620,6 @@
             }
             if (isset($data['latest_longitude'])) {
                 $latest_longitude = (float)$data['latest_longitude'];
-            }
-            if (isset($data['altitude'])) {
-                $altitude = (float)$data['altitude'];
             }
             if (isset($data['battery_level'])) {
                 $battery = (int)$data['battery_level'];
@@ -1662,7 +1659,7 @@
                 $is_available,
                 $latest_latitude,
                 $latest_longitude,
-                $altitude,
+                $altitude, 
                 $battery_level,
                 $state
             );
@@ -1779,6 +1776,15 @@
             }
 
             if (isset($data['altitude'])) {
+                $stmt = $this->connection->prepare("SELECT state FROM drones WHERE id = ?");
+                $stmt->bind_param("i", $droneId);
+                $stmt->execute();
+                $resultState = $stmt->get_result();
+                $droneStateRow = $resultState->fetch_assoc();
+                if (!$droneStateRow || $droneStateRow['state'] !== 'Flying') {
+                    return $this->error("Drone must be 'Flying' to update altitude", 400);
+                }
+
                 $newAltitude = (float)$data['altitude'];
                 if ($newAltitude > 30) {
                     $this->crashDrone($droneId);
@@ -1788,6 +1794,9 @@
                         'data' => 'Drone crashed: altitude exceeded 30 meters',
                         'code' => 400
                     ];
+                }
+                if ($newAltitude < 0) {
+                    return $this->error("Altitude cannot be negative", 400);
                 }
                 $updates[] = "altitude = ?";
                 $params[] = $newAltitude;
@@ -1818,24 +1827,14 @@
                         'code' => 400
                     ];
                 }
+                if ($newState === 'Grounded at HQ') {
+                    return $this->handleReturnToHQ($droneId);
+                }
                 $updates[] = "state = ?";
                 $params[] = $newState;
                 $types .= 's';
 
-                if ($newState === 'Grounded at HQ') {
-                    $updates[] = "is_available = ?";
-                    $params[] = 1;
-                    $types .= 'i';
-                    $updates[] = "current_operator_id = ?";
-                    $params[] = null;
-                    $types .= 'i';
-                    $updates[] = "battery_level = ?";
-                    $params[] = 100;
-                    $types .= 'i';
-                    $updates[] = "altitude = ?";
-                    $params[] = 0;
-                    $types .= 'i';
-                } elseif ($newState === 'Flying') {
+                if ($newState === 'Flying') {
                     $updates[] = "is_available = ?";
                     $params[] = 0;
                     $types .= 'i';
@@ -1972,7 +1971,7 @@
                 return $this->error("Invalid direction. Must be 'up', 'down', 'left', or 'right'", 400);
             }
 
-            $stmt = $this->connection->prepare("SELECT latest_latitude, latest_longitude FROM drones WHERE id = ?");
+            $stmt = $this->connection->prepare("SELECT latest_latitude, latest_longitude, state FROM drones WHERE id = ?");
             if (!$stmt) {
                 return $this->error("Database error: failed to prepare statement", 500);
             }
@@ -1983,6 +1982,10 @@
                 return $this->error("Drone not found", 404);
             }
             $drone = $result->fetch_assoc();
+
+            if ($drone['state'] !== 'Flying') {
+                return $this->error("Drone must be 'Flying' to move", 400);
+            }
 
             $latitude = (float)$drone['latest_latitude'];
             $longitude = (float)$drone['latest_longitude'];
@@ -2120,12 +2123,14 @@
                 return $this->error("No dispatched order assigned to this drone", 400);
             }
 
-            $distance = $this->distanceBetween(
-                $drone['latest_latitude'], $drone['latest_longitude'],
-                $order['latitude'], $order['longitude']
-            );
-            if ($distance > 0.01) { // 0.01 km = 10 meters
-                return $this->error("Drone must be within 10 meters of the delivery location to deliver the order", 400);
+            $droneLat = (float)$drone['latest_latitude'];
+            $droneLong = (float)$drone['latest_longitude'];
+            $orderLat = (float)$order['latitude'];
+            $orderLong = (float)$order['longitude'];
+
+            $distance = $this->distanceBetween($droneLat, $droneLong, $orderLat, $orderLong);
+            if ($distance >= 10) {
+                return $this->error("Drone must be within 10 meters of the delivery location to deliver the order (current distance to delivery location: {$distance}m). Drone lat: {$droneLat} Order lat: {$orderLat} Drone long: {$droneLong} Order long: {$orderLong}", 400);
             }
 
             $this->connection->begin_transaction();
@@ -2134,11 +2139,10 @@
                 $stmt = $this->connection->prepare("UPDATE orders SET state = 'Delivered', drone_id = NULL, delivery_date = ? WHERE id = ?");
                 $stmt->bind_param("si", $now, $order['id']);
                 $stmt->execute();
-
     
-                $stmt = $this->connection->prepare("UPDATE drones SET state = 'Grounded at HQ', is_available = 0 WHERE id = ?");
-                $stmt->bind_param("i", $droneId);
-                $stmt->execute();
+                // $stmt = $this->connection->prepare("UPDATE drones SET state = 'Grounded at HQ', is_available = 0 WHERE id = ?");
+                // $stmt->bind_param("i", $droneId);
+                // $stmt->execute();
 
                 $this->connection->commit();
                 return [
@@ -2174,8 +2178,10 @@
                     $stmt->bind_param("i", $order['id']);
                     $stmt->execute();
                 }
+                $hqLat = HQ_LATITUDE;
+                $hqLong = HQ_LONGITUDE;
                 $stmt = $this->connection->prepare("UPDATE drones SET latest_latitude = ?, latest_longitude = ?, state = 'Grounded at HQ', is_available = 1, current_operator_id = NULL, battery_level = 100, altitude = 0 WHERE id = ?");
-                $stmt->bind_param("ddi", HQ_LATITUDE, HQ_LONGITUDE, $droneId);
+                $stmt->bind_param("ddi", $hqLat, $hqLong, $droneId);
                 $stmt->execute();
 
                 $this->connection->commit();
@@ -2193,7 +2199,7 @@
 
         private function handleUpdateAltitude($courierId, $data) {
             $droneId = (int)$data['drone_id'];
-            $stmt = $this->connection->prepare("SELECT altitude FROM drones WHERE id = ?");
+            $stmt = $this->connection->prepare("SELECT altitude, state FROM drones WHERE id = ?");
             $stmt->bind_param("i", $droneId);
             $stmt->execute();
             $result = $stmt->get_result();
@@ -2202,11 +2208,22 @@
             }
             $drone = $result->fetch_assoc();
             $currentAltitude = (float)$drone['altitude'];
+            $currentState = $drone['state'];
+            if ($currentState !== 'Flying') {
+                return $this->error("Drone must be 'Flying' to update altitude", 400);
+            }
 
             $newAltitude = null;
             if (isset($data['increase'])) {
-                $newAltitude = $currentAltitude + (float)$data['increase'];
+                if ($currentAltitude + (float)$data['increase'] < 0) {
+                    return $this->error("Altitude cannot be negative", 400);
+                }
+                $increase = (float)$data['increase'];
+                $newAltitude = $currentAltitude + $increase;
             } elseif (isset($data['altitude'])) {
+                if ($data['altitude'] < 0) {
+                    return $this->error("Altitude cannot be negative", 400);
+                }
                 $newAltitude = (float)$data['altitude'];
             } else {
                 return $this->error("Must provide 'increase' or 'altitude' value", 400);
@@ -2231,13 +2248,13 @@
             return [
                 'status' => 'success',
                 'timestamp' => round(microtime(true) * 1000),
-                'data' => "Drone altitude updated to $newAltitude",
+                'data' => "Drone altitude updated to $newAltitude (was $currentAltitude)",
                 'code' => 200
             ];
         }
 
         private function crashDrone($droneId) {
-            $stmt = $this->connection->prepare("UPDATE drones SET state = 'Crashed', is_available = 0 WHERE id = ?");
+            $stmt = $this->connection->prepare("UPDATE drones SET state = 'Crashed', is_available = 0, altitude = 0 WHERE id = ?");
             $stmt->bind_param("i", $droneId);
             $stmt->execute();
 
@@ -2286,7 +2303,7 @@
         }
 
         private function distanceBetween($lat1, $lon1, $lat2, $lon2) {
-            $earthRadius = 6371;
+            $earthRadius = 6371000;
             $dLat = deg2rad($lat2 - $lat1);
             $dLon = deg2rad($lon2 - $lon1);
             $a = sin($dLat/2) * sin($dLat/2) +

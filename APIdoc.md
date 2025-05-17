@@ -407,7 +407,7 @@ Handles order creation, updates, and retrieval for both customers and couriers.
 
 ### Order Actions:
 - `create` or `place`: Creates a new order from the user's cart and clears their cart automatically. A user cannot place an order with more than 7 products.
-    - **You can specify order fields** (`drone_id`, `latitude`, `longitude`, `state`) when creating an order. If not specified, defaults are used (`drone_id`, `latitude`, `longitude` are `null`, `state` is `"Storage"`).
+    - **You can specify order fields** (`drone_id`, `latitude`, `longitude`, `state`) when creating an order. If not specified, defaults are used (`drone_id`, `latitude`, `longitude` are `null`, `state` is `"Storage"`). It is recommended not to specify a `drone_id` when creating an order: Use the drone actions for this instead.
 - `update`: Updates order fields (like location, state, or drone assignment).
     - **A drone can only be assigned to an order if the order's delivery location is within 5km of HQ.** If not, the API returns an error.
 - `get`: Retrieves orders based on user type (for a Customer, it retrieves all of this customer's orders; for a Courier, it retrieves all orders with state "Storage" by default, or as specified in the request).
@@ -493,18 +493,18 @@ Manages drone inventory and operations for Couriers.
     - **By default, the drone's `latest_latitude` and `latest_longitude` are set to the HQ coordinates.**
     - **By default, the drone's `state` is `"Grounded at HQ"` and `is_available` is `true`.**
 - `update`: Modifies drone properties as specified in the request object.
-    - **If `state` is set to `"Grounded at HQ"`, `is_available` is set to `true`, `current_operator_id` is cleared, `battery_level` is set to 100, and `altitude` is set to 0.**
+    - **If `state` is set to `"Grounded at HQ"`, the same will happen as when the `returnToHQ` action is used (see below)**
     - **If `state` is set to `"Flying"`, `is_available` is set to `false` and `current_operator_id` is set to the courier performing the update.**
-    - **If `state` is set to `"Crashed"`, `is_available` is set to `false`, `current_operator_id` remains unchanged, and if the drone is assigned to an order that is not delivered, the order is set back to `"Storage"` and the drone is unassigned.**
+    - **If `state` is set to `"Crashed"`, `is_available` is set to `false`, `current_operator_id` remains unchanged, and if the drone is assigned to an order that is not delivered, the order is set back to `"Storage"` and the drone is unassigned. The drone's altitude is set to 0.**
     - **You cannot update `current_operator_id` manually; the API manages this automatically.**
     - **When updating `latest_latitude` or `latest_longitude`, the new location must be within 5km of HQ. If not, the API returns an error.**
 - `get`: Retrieves all drone information. If the user is a customer, only drones associated with their orders will be returned. If the user is a courier, all drones will be returned.
-- `move` along with a `direction`: Couriers can move a drone by specifying a `drone_id` and a direction. The drone's new location must remain within 5km of HQ.
+- `move` along with a `direction` (`up`, `down`, `left` or `right`): Couriers can move a drone by specifying a `drone_id` and a `direction`. The drone must be `Flying` for it to be able to move. The drone's new location must remain within 5km of HQ. The drone that you are currently moving will be returned (if it is moved successfully).
 - `returnToHQ`: Returns the drone to the HQ coordinates, sets its `state` to `"Grounded at HQ"`, marks it as available, clears `current_operator_id`, sets `battery_level` to 100, and `altitude` to 0.
-- `dispatch` (Courier only): Assigns a drone to an order and sets both to "Dispatched"/"Flying". Only possible if the order is in "Storage" and has no drone assigned, and the drone is "Grounded at HQ" and available. The drone's `current_operator_id` is set to the courier, and the drone's `altitude` is set to 10. The order's delivery location must be within 5km of the HQ for this action to work.
-- `deliver` (Courier only): Delivers the order if the drone is "Flying" and assigned to a "Dispatched" order. The drone must be within 10 meters of the order's delivery location. The order is marked as "Delivered", the drone's state is set to `"Grounded at HQ"` and `is_available` is set to `false`, but the drone remains at its current location and the operator is NOT cleared. The drone only becomes available again once it returns to HQ.
-- `cancel` (Courier only): Cancels the delivery. The drone is returned to HQ, the order (if not delivered) is set back to "Storage" and unassigned, `current_operator_id` is cleared, `battery_level` is set to 100, and `altitude` is set to 0.
-- `updateAltitude` (Courier only): Increases the drone's altitude by the passed in `"increase"` value OR sets the altitude to the passed in `"altitude"` value. If the new altitude is greater than 30, the drone will crash (see crash logic above).
+- `dispatch`: Assigns a drone to an order and sets both to "Dispatched"/"Flying". Only possible if the order is in "Storage" and has no drone assigned, and the drone is "Grounded at HQ" and available. The drone's `current_operator_id` is set to the courier, and the drone's `altitude` is set to 10. The order's delivery location must be within 5km of the HQ for this action to work.
+- `deliver`: Delivers the order if the drone is "Flying" and assigned to a "Dispatched" order. The drone must be within 10 meters of the order's delivery location. The order is marked as "Delivered". The drone remains at its current location and the operator is not cleared.
+- `cancel`: Cancels the delivery. The drone is returned to HQ, the order (if not delivered) is set back to "Storage" and unassigned, `current_operator_id` is cleared, `battery_level` is set to 100, and `altitude` is set to 0.
+- `updateAltitude`: Increases the drone's altitude by the passed in `"increase"` value OR sets the altitude to the passed in `"altitude"` value. If the new altitude is greater than 30, the drone will crash automatically.
 
 #### Example Request (Create Drone):
 ```json
