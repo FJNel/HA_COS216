@@ -1139,7 +1139,7 @@
             }
         }
     
-        private function handlePlaceOrder($customerId) {
+        private function handlePlaceOrder($customerId, $data = []) {
             $this->connection->begin_transaction();
 
             try {
@@ -1155,7 +1155,17 @@
                     throw new Exception("Cannot place order with empty cart");
                 }
 
-                $orderId = $this->createOrder($customerId);
+                $deliveryDate = $this->generateRandomDeliveryDate();
+                $droneId = isset($data['drone_id']) ? (int)$data['drone_id'] : null;
+                $latitude = isset($data['latitude']) ? (float)$data['latitude'] : null;
+                $longitude = isset($data['longitude']) ? (float)$data['longitude'] : null;
+                $state = isset($data['state']) ? $data['state'] : 'Storage';
+
+                if (isset($data['state']) && !in_array($data['state'], ['Storage', 'Dispatched', 'Delivered'])) {
+                    throw new Exception("Invalid state. Must be 'Storage', 'Dispatched', or 'Delivered'");
+                }
+
+                $orderId = $this->createOrderWithFields($customerId, $deliveryDate, $droneId, $latitude, $longitude, $state);
                 $this->addProductsToOrder($orderId, $cartItems);
                 $this->clearCart($customerId);
                 $this->connection->commit();
@@ -1172,6 +1182,24 @@
                 $this->connection->rollback();
                 return $this->error($e->getMessage(), 400);
             }
+        }
+
+        private function createOrderWithFields($customerId, $deliveryDate, $droneId, $latitude, $longitude, $state) {
+            $stmt = $this->connection->prepare("
+                INSERT INTO orders (customer_id, delivery_date, drone_id, latitude, longitude, state) 
+                VALUES (?, ?, ?, ?, ?, ?)
+            ");
+            $stmt->bind_param(
+                "isddds",
+                $customerId,
+                $deliveryDate,
+                $droneId,
+                $latitude,
+                $longitude,
+                $state
+            );
+            $stmt->execute();
+            return $this->connection->insert_id;
         }
     
         private function getCartItems($customerId) {
