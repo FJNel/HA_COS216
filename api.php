@@ -1129,7 +1129,7 @@
                     if ($userType !== 'Customer') {
                         return $this->error("Unauthorized: Only Customers can place orders", 403);
                     }
-                    return $this->handlePlaceOrder($userId);
+                    return $this->handlePlaceOrder($userId, $data);
                 case 'update':
                     return $this->handleUpdateOrder($userId, $userType, $data);
                 case 'get':
@@ -1492,18 +1492,31 @@
             switch ($action) {
                 case 'create':
                     return $this->handleCreateDrone($data);
+                    break;
                 case 'update':
                     if ($userType !== 'Courier') {
                         return $this->error("Unauthorized: Only Couriers can update drones", 403);
                     }
                     return $this->handleUpdateDrone($data);
+                    break;
                 case 'get':
                     return $this->handleGetDrones($data);
+                    break;
                 case 'move':
                     if ($userType !== 'Courier') {
                         return $this->error("Unauthorized: Only Couriers can move drones", 403);
                     }
                     return $this->handleMoveDrone($data);
+                    break;
+                case 'returnToHQ':
+                    if ($userType !== 'Courier') {
+                        return $this->error("Unauthorized: Only Couriers can move drones", 403);
+                    }
+                    if (!isset($data['drone_id'])) {
+                        return $this->error("drone_id is required for returnToHQ", 400);
+                    }
+                    return $this->handleReturnToHQ($data['drone_id']);
+                    break;
                 default:
                     return $this->error("Invalid action. Must be 'create' or 'place', 'update', 'get' or 'move", 400);
             }
@@ -1512,17 +1525,18 @@
         private function handleCreateDrone($data) {
             $userId = $this->getUserIdByApiKey($data['apikey']);
             $userType = $this->getUserType($userId);
-            
+
             if ($userType !== 'Courier') {
                 return $this->error("Unauthorized: Only Couriers can create drones", 403);
             }
 
             $current_operator_id = null;
             $is_available = true;
-            $latest_latitude = null;
-            $latest_longitude = null;
+            $latest_latitude = -25.7472;
+            $latest_longitude = 28.2511;
             $altitude = null;
             $battery_level = 100;
+            $state = 'Grounded at HQ';
 
             if (isset($data['current_operator_id'])) {
                 $current_operator_id = $data['current_operator_id'] === null ? null : (int)$data['current_operator_id'];
@@ -1546,6 +1560,15 @@
                 }
                 $battery_level = $battery;
             }
+            if (isset($data['state'])) {
+                if (!in_array($data['state'], ['Grounded at HQ', 'Flying', 'Crashed'])) {
+                    return $this->error("Invalid state. Must be 'Grounded at HQ', 'Flying', or 'Crashed'", 400);
+                }
+                $state = $data['state'];
+            }
+
+            // Set is_available based on state
+            $is_available = ($state === 'Grounded at HQ') ? 1 : 0;
 
             $stmt = $this->connection->prepare("
                 INSERT INTO drones (
@@ -1554,22 +1577,24 @@
                     latest_latitude, 
                     latest_longitude, 
                     altitude, 
-                    battery_level
+                    battery_level,
+                    state
                 ) 
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             ");
             if (!$stmt) {
                 return $this->error("Database error: failed to prepare statement", 500);
             }
 
             $stmt->bind_param(
-                "iddddi",
+                "iddddis",
                 $current_operator_id,
                 $is_available,
                 $latest_latitude,
                 $latest_longitude,
                 $altitude,
-                $battery_level
+                $battery_level,
+                $state
             );
 
             if (!$stmt->execute()) {
@@ -1588,6 +1613,32 @@
             ];
         }
 
+        private function handleReturnToHQ($droneId) {
+            $hqLat = -25.7472;
+            $hqLong = 28.2511;
+            $state = 'Grounded at HQ';
+            $is_available = 1;
+
+            $stmt = $this->connection->prepare("
+                UPDATE drones 
+                SET latest_latitude = ?, latest_longitude = ?, state = ?, is_available = ?
+                WHERE id = ?
+            ");
+            if (!$stmt) {
+                return $this->error("Database error: failed to prepare statement", 500);
+            }
+            $stmt->bind_param("ddsii", $hqLat, $hqLong, $state, $is_available, $droneId);
+            if (!$stmt->execute()) {
+                return $this->error("Database error: failed to update drone", 500);
+            }
+            return [
+                'status' => 'success',
+                'timestamp' => round(microtime(true) * 1000),
+                'data' => 'Drone returned to HQ',
+                'code' => 200
+            ];
+        }
+
         private function handleUpdateDrone($data) {
             if (!isset($data['drone_id'])) {
                 return $this->error("drone_id is required for update", 400);
@@ -1596,30 +1647,58 @@
             $droneId = (int)$data['drone_id'];
             $updates = [];
             $params = [];
+            $types = '';
+
+            $latitudeUpdate = array_key_exists('latest_latitude', $data);
+            $longitudeUpdate = array_key_exists('latest_longitude', $data);
+
+            if ($latitudeUpdate || $longitudeUpdate) {
+                $stmt = $this->connection->prepare("SELECT latest_latitude, latest_longitude FROM drones WHERE id = ?");
+                if (!$stmt) {
+                    return $this->error("Database error: failed to prepare statement", 500);
+                }
+                $stmt->bind_param("i", $droneId);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                if ($row = $result->fetch_assoc()) {
+                    $latitude = $latitudeUpdate ? (float)$data['latest_latitude'] : (float)$row['latest_latitude'];
+                    $longitude = $longitudeUpdate ? (float)$data['latest_longitude'] : (float)$row['latest_longitude'];
+                } else {
+                    return $this->error("Drone not found", 404);
+                }
+
+                if (!$this->isWithin5kmOfHQ($latitude, $longitude)) {
+                    return $this->error("Drone cannot move outside a 5km radius from HQ", 400);
+                }
+
+                if ($latitudeUpdate) {
+                    $updates[] = "latest_latitude = ?";
+                    $params[] = $latitude;
+                    $types .= 'd';
+                }
+                if ($longitudeUpdate) {
+                    $updates[] = "latest_longitude = ?";
+                    $params[] = $longitude;
+                    $types .= 'd';
+                }
+            }
 
             if (isset($data['current_operator_id'])) {
                 $updates[] = "current_operator_id = ?";
                 $params[] = $data['current_operator_id'] === null ? null : (int)$data['current_operator_id'];
+                $types .= 'i';
             }
 
             if (isset($data['is_available'])) {
                 $updates[] = "is_available = ?";
                 $params[] = (bool)$data['is_available'];
-            }
-
-            if (isset($data['latest_latitude'])) {
-                $updates[] = "latest_latitude = ?";
-                $params[] = (float)$data['latest_latitude'];
-            }
-
-            if (isset($data['latest_longitude'])) {
-                $updates[] = "latest_longitude = ?";
-                $params[] = (float)$data['latest_longitude'];
+                $types .= 'i';
             }
 
             if (isset($data['altitude'])) {
                 $updates[] = "altitude = ?";
                 $params[] = (float)$data['altitude'];
+                $types .= 'd';
             }
 
             if (isset($data['battery_level'])) {
@@ -1629,6 +1708,19 @@
                 }
                 $updates[] = "battery_level = ?";
                 $params[] = $battery;
+                $types .= 'i';
+            }
+
+            if (isset($data['state'])) {
+                if (!in_array($data['state'], ['Grounded at HQ', 'Flying', 'Crashed'])) {
+                    return $this->error("Invalid state. Must be 'Grounded at HQ', 'Flying', or 'Crashed'", 400);
+                }
+                $updates[] = "state = ?";
+                $params[] = $data['state'];
+                $types .= 's';
+                $updates[] = "is_available = ?";
+                $params[] = ($data['state'] === 'Grounded at HQ') ? 1 : 0;
+                $types .= 'i';
             }
 
             if (empty($updates)) {
@@ -1637,13 +1729,13 @@
 
             $sql = "UPDATE drones SET " . implode(", ", $updates) . " WHERE id = ?";
             $params[] = $droneId;
+            $types .= 'i';
 
             $stmt = $this->connection->prepare($sql);
             if (!$stmt) {
                 return $this->error("Database error: failed to prepare statement", 500);
             }
 
-            $types = str_repeat("s", count($params) - 1) . "i";
             $stmt->bind_param($types, ...$params);
 
             if (!$stmt->execute()) {
@@ -1788,6 +1880,10 @@
                     break;
             }
 
+            if (!$this->isWithin5kmOfHQ($latitude, $longitude)) {
+                return $this->error("Drone cannot move outside a 5km radius from HQ", 400);
+            }
+
             $updateStmt = $this->connection->prepare("UPDATE drones SET latest_latitude = ?, latest_longitude = ? WHERE id = ?");
             if (!$updateStmt) {
                 return $this->error("Database error: failed to prepare update statement", 500);
@@ -1841,6 +1937,24 @@
             $stmt->execute();
             $result = $stmt->get_result();
             return $result->num_rows ? $result->fetch_assoc()['type'] : null;
+        }
+
+        private function isWithin5kmOfHQ($lat, $long) {
+            //Check if the drone is within 5km of HQ
+            $hqLat = -25.7472;
+            $hqLong = 28.2511;
+            $earthRadius = 6371;
+
+            $dLat = deg2rad($lat - $hqLat);
+            $dLon = deg2rad($long - $hqLong);
+
+            $a = sin($dLat/2) * sin($dLat/2) +
+                cos(deg2rad($hqLat)) * cos(deg2rad($lat)) *
+                sin($dLon/2) * sin($dLon/2);
+            $c = 2 * atan2(sqrt($a), sqrt(1-$a));
+            $distance = $earthRadius * $c;
+
+            return $distance <= 5;
         }
 
         private function error($message, $code) {
