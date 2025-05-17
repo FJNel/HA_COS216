@@ -1580,8 +1580,16 @@
                         return $this->error("drone_id is required for cancel", 400);
                     }
                     return $this->handleCancel($userId, $data['drone_id']);
+                case 'updatealtitude':
+                    if ($userType !== 'Courier') {
+                        return $this->error("Unauthorized: Only Couriers can update drone altitude", 403);
+                    }
+                    if (!isset($data['drone_id'])) {
+                        return $this->error("drone_id is required for updateAltitude", 400);
+                    }
+                    return $this->handleUpdateAltitude($userId, $data);
                 default:
-                    return $this->error("Invalid action. Must be 'create', 'update', 'get', 'move', 'returnToHQ', 'dispatch', 'deliver', or 'cancel'", 400);
+                    return $this->error("Invalid action. Must be 'create', 'update', 'get', 'move', 'returnToHQ', 'dispatch', 'deliver', 'cancel', or 'updateAltitude'", 400);
             }
         }
 
@@ -1680,16 +1688,18 @@
             $hqLong = HQ_LONGITUDE;
             $state = 'Grounded at HQ';
             $is_available = 1;
+            $battery_level = 100;
+            $altitude = 0;
 
             $stmt = $this->connection->prepare("
                 UPDATE drones 
-                SET latest_latitude = ?, latest_longitude = ?, state = ?, is_available = ?, current_operator_id = NULL
+                SET latest_latitude = ?, latest_longitude = ?, state = ?, is_available = ?, current_operator_id = NULL, battery_level = ?, altitude = ?
                 WHERE id = ?
             ");
             if (!$stmt) {
                 return $this->error("Database error: failed to prepare statement", 500);
             }
-            $stmt->bind_param("ddsii", $hqLat, $hqLong, $state, $is_available, $droneId);
+            $stmt->bind_param("ddsiiii", $hqLat, $hqLong, $state, $is_available, $battery_level, $altitude, $droneId);
             if (!$stmt->execute()) {
                 return $this->error("Database error: failed to update drone", 500);
             }
@@ -1711,13 +1721,15 @@
             $params = [];
             $types = '';
 
-            $stmt = $this->connection->prepare("SELECT state FROM drones WHERE id = ?");
+            $stmt = $this->connection->prepare("SELECT state, altitude FROM drones WHERE id = ?");
             $stmt->bind_param("i", $droneId);
             $stmt->execute();
             $result = $stmt->get_result();
             $currentState = null;
+            $currentAltitude = null;
             if ($row = $result->fetch_assoc()) {
                 $currentState = $row['state'];
+                $currentAltitude = $row['altitude'];
             } else {
                 return $this->error("Drone not found", 404);
             }
@@ -1767,8 +1779,18 @@
             }
 
             if (isset($data['altitude'])) {
+                $newAltitude = (float)$data['altitude'];
+                if ($newAltitude > 30) {
+                    $this->crashDrone($droneId);
+                    return [
+                        'status' => 'error',
+                        'timestamp' => round(microtime(true) * 1000),
+                        'data' => 'Drone crashed: altitude exceeded 30 meters',
+                        'code' => 400
+                    ];
+                }
                 $updates[] = "altitude = ?";
-                $params[] = (float)$data['altitude'];
+                $params[] = $newAltitude;
                 $types .= 'd';
             }
 
@@ -1787,6 +1809,15 @@
                 if (!in_array($newState, ['Grounded at HQ', 'Flying', 'Crashed'])) {
                     return $this->error("Invalid state. Must be 'Grounded at HQ', 'Flying', or 'Crashed'", 400);
                 }
+                if ($newState === 'Crashed') {
+                    $this->crashDrone($droneId);
+                    return [
+                        'status' => 'error',
+                        'timestamp' => round(microtime(true) * 1000),
+                        'data' => 'Drone crashed',
+                        'code' => 400
+                    ];
+                }
                 $updates[] = "state = ?";
                 $params[] = $newState;
                 $types .= 's';
@@ -1798,16 +1829,18 @@
                     $updates[] = "current_operator_id = ?";
                     $params[] = null;
                     $types .= 'i';
+                    $updates[] = "battery_level = ?";
+                    $params[] = 100;
+                    $types .= 'i';
+                    $updates[] = "altitude = ?";
+                    $params[] = 0;
+                    $types .= 'i';
                 } elseif ($newState === 'Flying') {
                     $updates[] = "is_available = ?";
                     $params[] = 0;
                     $types .= 'i';
                     $updates[] = "current_operator_id = ?";
                     $params[] = $courierId;
-                    $types .= 'i';
-                } elseif ($newState === 'Crashed') {
-                    $updates[] = "is_available = ?";
-                    $params[] = 0;
                     $types .= 'i';
                 }
             }
@@ -2050,7 +2083,7 @@
                 $stmt->bind_param("ii", $droneId, $orderId);
                 $stmt->execute();
 
-                $stmt = $this->connection->prepare("UPDATE drones SET state = 'Flying', is_available = 0, current_operator_id = ? WHERE id = ?");
+                $stmt = $this->connection->prepare("UPDATE drones SET state = 'Flying', is_available = 0, current_operator_id = ?, altitude = 10 WHERE id = ?");
                 $stmt->bind_param("ii", $courierId, $droneId);
                 $stmt->execute();
 
@@ -2102,8 +2135,9 @@
                 $stmt->bind_param("si", $now, $order['id']);
                 $stmt->execute();
 
-                $stmt = $this->connection->prepare("UPDATE drones SET state = 'Grounded at HQ', is_available = 1, current_operator_id = NULL, latest_latitude = ?, latest_longitude = ? WHERE id = ?");
-                $stmt->bind_param("ddi", HQ_LATITUDE, HQ_LONGITUDE, $droneId);
+    
+                $stmt = $this->connection->prepare("UPDATE drones SET state = 'Grounded at HQ', is_available = 0 WHERE id = ?");
+                $stmt->bind_param("i", $droneId);
                 $stmt->execute();
 
                 $this->connection->commit();
@@ -2140,7 +2174,7 @@
                     $stmt->bind_param("i", $order['id']);
                     $stmt->execute();
                 }
-                $stmt = $this->connection->prepare("UPDATE drones SET latest_latitude = ?, latest_longitude = ?, state = 'Grounded at HQ', is_available = 1, current_operator_id = NULL WHERE id = ?");
+                $stmt = $this->connection->prepare("UPDATE drones SET latest_latitude = ?, latest_longitude = ?, state = 'Grounded at HQ', is_available = 1, current_operator_id = NULL, battery_level = 100, altitude = 0 WHERE id = ?");
                 $stmt->bind_param("ddi", HQ_LATITUDE, HQ_LONGITUDE, $droneId);
                 $stmt->execute();
 
@@ -2154,6 +2188,67 @@
             } catch (Exception $e) {
                 $this->connection->rollback();
                 return $this->error("Failed to cancel drone delivery: " . $e->getMessage(), 500);
+            }
+        }
+
+        private function handleUpdateAltitude($courierId, $data) {
+            $droneId = (int)$data['drone_id'];
+            $stmt = $this->connection->prepare("SELECT altitude FROM drones WHERE id = ?");
+            $stmt->bind_param("i", $droneId);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            if (!$result->num_rows) {
+                return $this->error("Drone not found", 404);
+            }
+            $drone = $result->fetch_assoc();
+            $currentAltitude = (float)$drone['altitude'];
+
+            $newAltitude = null;
+            if (isset($data['increase'])) {
+                $newAltitude = $currentAltitude + (float)$data['increase'];
+            } elseif (isset($data['altitude'])) {
+                $newAltitude = (float)$data['altitude'];
+            } else {
+                return $this->error("Must provide 'increase' or 'altitude' value", 400);
+            }
+
+            if ($newAltitude > 30) {
+                $this->crashDrone($droneId);
+                return [
+                    'status' => 'error',
+                    'timestamp' => round(microtime(true) * 1000),
+                    'data' => 'Drone crashed: altitude exceeded 30 meters',
+                    'code' => 400
+                ];
+            }
+
+            $stmt = $this->connection->prepare("UPDATE drones SET altitude = ? WHERE id = ?");
+            $stmt->bind_param("di", $newAltitude, $droneId);
+            if (!$stmt->execute()) {
+                return $this->error("Database error: failed to update altitude", 500);
+            }
+
+            return [
+                'status' => 'success',
+                'timestamp' => round(microtime(true) * 1000),
+                'data' => "Drone altitude updated to $newAltitude",
+                'code' => 200
+            ];
+        }
+
+        private function crashDrone($droneId) {
+            $stmt = $this->connection->prepare("UPDATE drones SET state = 'Crashed', is_available = 0 WHERE id = ?");
+            $stmt->bind_param("i", $droneId);
+            $stmt->execute();
+
+            $stmt = $this->connection->prepare("SELECT id, state FROM orders WHERE drone_id = ?");
+            $stmt->bind_param("i", $droneId);
+            $stmt->execute();
+            $order = $stmt->get_result()->fetch_assoc();
+            if ($order && $order['state'] !== 'Delivered') {
+                $stmt = $this->connection->prepare("UPDATE orders SET state = 'Storage', drone_id = NULL WHERE id = ?");
+                $stmt->bind_param("i", $order['id']);
+                $stmt->execute();
             }
         }
 
